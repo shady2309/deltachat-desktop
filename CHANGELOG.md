@@ -10,6 +10,7 @@
 - allow starting a viedochat in groups
 - add local help for zh_CN and fr
 - add missing Czech translation #2218
+- add audit log to chats (view where only info/system messages are shown such as member added/removed)
 
 ## Fixed
 - Fix soure-mapped stacktrace on crashscreen in bundled production builds
