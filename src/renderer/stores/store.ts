@@ -14,6 +14,21 @@ export function useStore<T extends Store<any>>(
   return [state, StoreInstance.dispatch.bind(StoreInstance)]
 }
 
+
+export function useStore2<T extends Store<any>>(
+  StoreInstance: T
+): [T extends Store<infer S> ? S : any, T['dispatch2']] {
+  const [state, setState] = useState(StoreInstance.getState())
+
+  useEffect(() => {
+    StoreInstance.subscribe(setState)
+    return () => StoreInstance.unsubscribe(setState)
+  }, [])
+  // TODO: better return an object to allow destructuring
+  return [state, StoreInstance.dispatch2.bind(StoreInstance)]
+}
+
+
 export interface Action {
   type: string
   payload?: any
@@ -50,16 +65,21 @@ export class Store<S> {
       effect(action, state)
     })
     if (state !== this.state) {
-      /*this.log.debug(
+      this.log.debug(
         `DISPATCHING of "${action.type}" changed the state. Before:`,
         this.state,
         'After:',
         state
-      )*/
+      )
       this.log.debug(`DISPATCHING of "${action.type}" changed the state.`)
       this.state = state
       this.listeners.forEach(listener => listener(this.state))
     }
+  }
+  
+  dispatch2(type: string, payload: any, id: number) {
+    const action: Action = { type, payload, id}
+    return this.dispatch(action)
   }
 
   subscribe(listener: (state: S) => void) {

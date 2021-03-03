@@ -1,14 +1,14 @@
-import { ChatStoreState } from "../../stores/chat";
-import React, { useEffect, useState } from 'react'
-import { setRTLTextPlugin } from "mapbox-gl";
+import { ChatStoreState, PAGE_SIZE } from "../../stores/chat";
+import React, { useEffect } from 'react'
 import { DeltaBackend } from "../../delta-remote";
-import { MessageWrapper } from "./MessageWrapper";
 import { MessageType } from "../../../shared/shared-types";
-import { number } from "prop-types";
-import { Store, useStore } from "../../stores/store";
+import { Store, useStore2 } from "../../stores/store";
+import { getLogger } from "../../../shared/logger";
 
 
 export type MessageId = number
+const log = getLogger('renderer/message/MessageList')
+
 
 export type MessageIds = Array<MessageId>
 
@@ -18,21 +18,25 @@ export interface Messages {
 	[key: number]: Message
 }
 
-export class MessageListPage {
-	pageMessageIds: MessageIds
-	pageMessages: Messages
-	firstMessageIdIndex: number
-	lastMessageIdIndex: number
-	pageLoading: boolean
-}
 
 export type MessageListPages = FixedSizeArray<2, MessageListPage>
 
-export class PageStoreState {
-	pages: MessageListPages
-	chatId: number
+
+export class MessageListPage {
 	messageIds: MessageIds
-	pageZeroIsAbove: boolean
+	messages: Messages
+	firstMessageIdIndex: number
+	lastMessageIdIndex: number
+	key: string
+}
+
+
+export class PageStoreState {
+	pages: { [key:string] : MessageListPage}
+	pageOrdering: string[]
+	chatId: number
+	messageIds: MessageId[]
+	loading: boolean
 }
 
 export type FixedSizeArray<N extends number, T> = N extends 0 ? never[] : {
@@ -41,51 +45,109 @@ export type FixedSizeArray<N extends number, T> = N extends 0 ? never[] : {
 } & ReadonlyArray<T>;
 
 
-const pageStore  = new Store<MessageListPages>([new MessageListPage(), new MessageListPage()], 'MessageListPageStore');
 
-pageStore.attachReducer((action, state) => {
-	if (action.type === 'UPDATE_PAGE') {
-	    const {pageId, ...updatedProperties}  = action.payload
-		
-		return {
-			...state,
-			[pageId]: {
-				...state[pageId],
-				...updatedProperties
+
+const pageStore  = new Store<PageStoreState>(new PageStoreState(), 'MessageListPageStore');
+
+
+function updatePage(state: PageStoreState, pageKey: string, updateObj: todo) {
+	return {
+		...state,
+		pages: {
+			...state.pages,
+			[pageKey]: {
+				...state.pages[pageKey],
+				...updateObj
 			}
 		}
 	}
+}
+
+pageStore.attachReducer((action, state) => {
+	if (action.id !== state.chatId) return
+
+	if (action.type === 'UPDATE_PAGE') {
+	    const {pageId, ...updateProperties}  = action.payload
+		return updatePage(state, pageId, updateProperties)
+	}
 })
 
-pageStore.attachEffect((action, state) => {
-	if (action.type === 'UPDATE_PAGE') {
+
+pageStore.attachEffect(async (action, state) => {
+
+	if (action.type === 'SELECT_CHAT') {
+		const {chatId} = action.payload
+		const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId)
+
+
+		return {
+			pages: [],
+			pageOrdering: [],
+			chatId,
+			messageIds,
+			loading: false
+		}
+	}
+
+	if (action.id !== state.chatId) return
+	
+	if (action.type === 'LOAD_PAGE_WITH_FIRST_MESSAGE_ID') {
+		if (state.loading === true) {
+			log.warn(`LOAD_PAGE_FROM_MESSAGE_ID: We are already loading something, bailing out`)
+			return
+		}
+		pageStore.setState({...state, loading: true})
+
+		const {messageId} = action.payload
+		const pageFirstMessageIdIndex = state.messageIds.indexOf(messageId)
+
+		if (pageFirstMessageIdIndex === -1) {
+			log.warn(`LOAD_PAGE_FROM_MESSAGE_ID: messageId ${messageId} is not in messageIds`)
+		}
+		
+		const pageMessageIds = state.messageIds.slice(pageFirstMessageIdIndex, pageFirstMessageIdIndex + PAGE_SIZE);
+		const pageLastMessageIdIndex = pageFirstMessageIdIndex + pageMessageIds.length - 1
+		
+		const pageMessages = await DeltaBackend.call('messageList.getMessages', pageMessageIds)
+
+		const pageKey = `page-${pageFirstMessageIdIndex}-${pageLastMessageIdIndex}
+		`
+		return {
+			...state,
+			pages: {
+				[pageKey]: {
+					firstMessageIdIndex: pageFirstMessageIdIndex,
+					lastMessageIdIndex: pageLastMessageIdIndex,
+					messageIds: pageMessageIds,
+					messages: pageMessages,
+					key: pageKey
+				}
+			},
+			pageOrdering: [pageKey],
+			loading: false			
+		}
+
+	}
+
 		
 })
 
-export const usePageStore = () => useStore(pageStore)
+export const usePageStore = () => useStore2(pageStore)
 
 
 
 
 export default function MessageList({
-	chat,
-	refComposer
-} : {
+	chat} : {
 	chat: ChatStoreState,
 	refComposer: todo
 }) {
 
-	const [pages, pagesDispatch] = usePageStore()
+	const [pageStore, pageStoreDispatch] = usePageStore()
 
 	const onSelectChat = () => {
-		setPages((pages) => { return {...pages, pageZero: {...pages.pageZero, loading: false}}})
-		;(async () => {
-			const _messageIds = await DeltaBackend.call('messageList.getMessageIds', chat.id)
-			const messageIds = [_messageIds[0], _messageIds[1], _messageIds[2]]
-			const messages = await DeltaBackend.call('messageList.getMessages', [messageIds[0], messageIds[1], messageIds[2]])
-			console.log(messages)
-			setPages((pages) => { return {...pages, pageZero: {...pages.pageZero, messageIds, messages, loading: false}}})
-		})()
+		pageStoreDispatch('SELECT_CHAT', {chatId: chat.id}, null)
+		pageStoreDispatch('LOAD_PAGE_WITH_FIRST_MESSAGE_ID', {messageId: pageStore.messageIds[0]}, chat.id)
 	}
 
 	useEffect(onSelectChat, [])
@@ -95,8 +157,9 @@ export default function MessageList({
 	const iterateMessages = (mapFunction: (key: string, messageId: MessageId, message: Message) => JSX.Element) => {
 		return (
 			<>
-				<MessagePage isPageZero={true} page={pages.pageZero} mapFunction={mapFunction} />
-				<MessagePage isPageZero={false} page={pages.pageOne} mapFunction={mapFunction} />
+				{pageStore.pageOrdering.map((pageKey: string) => {
+					return <MessagePage page={pageStore.pages[pageKey]} mapFunction={mapFunction}/>
+				})}
 			</>
 		)
 	}
@@ -114,26 +177,23 @@ export default function MessageList({
 }
 
 export function MessagePage(
-	{ 
-	  isPageZero,
-	  page,
-	  mapFunction
-	} : {
-		isPageZero: boolean,
-		page: MessageListPage,
-		mapFunction: (key: string, messageId: MessageId, message: Message) => JSX.Element
-	}) { 
-		const pageNumber = isPageZero ? 0 : 1;
-		return (
-			<div className={'message-list-page page-' + pageNumber} key={'page-' + pageNumber}>
-			  {"Is loading: " + page.loading}
-			  {page.messageIds.map((_messageId) => {
-				const messageId: MessageId = _messageId as MessageId 
-				const message: Message = page.messages[messageId]
-				const key = 'page-' + pageNumber + '-' + messageId
-				return mapFunction(key, messageId, message)
+{ 
+  page,
+  mapFunction
+} : {
+	page: MessageListPage,
+	mapFunction: (key: string, messageId: MessageId, message: Message) => JSX.Element
+}) { 
+	return (
+		<div className={'message-list-page'} key={page.key}>
+		  {"Is loading: " + page}
+		  {page.messageIds.map((_messageId) => {
+			const messageId: MessageId = _messageId as MessageId 
+			const message: Message = page.messages[messageId]
+			const key = page.key + '-' + messageId
+			return mapFunction(key, messageId, message)
 
-			  })}
-			</div>
-		)
-	}
+		  })}
+		</div>
+	)
+}
