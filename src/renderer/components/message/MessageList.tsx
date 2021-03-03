@@ -1,270 +1,139 @@
-import React, { useRef, useEffect } from 'react'
-import { MessageWrapper } from './MessageWrapper'
-import { useChatStore, ChatStoreState } from '../../stores/chat'
-import { useDebouncedCallback } from 'use-debounce'
-import { C } from 'deltachat-node/dist/constants'
-import moment from 'moment'
+import { ChatStoreState } from "../../stores/chat";
+import React, { useEffect, useState } from 'react'
+import { setRTLTextPlugin } from "mapbox-gl";
+import { DeltaBackend } from "../../delta-remote";
+import { MessageWrapper } from "./MessageWrapper";
+import { MessageType } from "../../../shared/shared-types";
+import { number } from "prop-types";
+import { Store, useStore } from "../../stores/store";
 
-import { getLogger } from '../../../shared/logger'
-import { MessageType } from '../../../shared/shared-types'
-import { useTranslationFunction } from '../../contexts'
-import { useDCConfigOnce } from '../helpers/useDCConfigOnce'
-const log = getLogger('render/msgList')
 
-const messageIdsToShow = (
-  oldestFetchedMessageIndex: number,
-  messageIds: number[]
-) => {
-  const messageIdsToShow = []
-  for (let i = oldestFetchedMessageIndex; i < messageIds.length; i++) {
-    messageIdsToShow.push(messageIds[i])
-  }
-  return messageIdsToShow
+export type MessageId = number
+
+export type MessageIds = Array<MessageId>
+
+export type Message = MessageType | { msg : null}
+
+export interface Messages {
+	[key: number]: Message
 }
+
+export class MessageListPage {
+	pageMessageIds: MessageIds
+	pageMessages: Messages
+	firstMessageIdIndex: number
+	lastMessageIdIndex: number
+	pageLoading: boolean
+}
+
+export type MessageListPages = FixedSizeArray<2, MessageListPage>
+
+export class PageStoreState {
+	pages: MessageListPages
+	chatId: number
+	messageIds: MessageIds
+	pageZeroIsAbove: boolean
+}
+
+export type FixedSizeArray<N extends number, T> = N extends 0 ? never[] : {
+    0: T;
+    length: N;
+} & ReadonlyArray<T>;
+
+
+const pageStore  = new Store<MessageListPages>([new MessageListPage(), new MessageListPage()], 'MessageListPageStore');
+
+pageStore.attachReducer((action, state) => {
+	if (action.type === 'UPDATE_PAGE') {
+	    const {pageId, ...updatedProperties}  = action.payload
+		
+		return {
+			...state,
+			[pageId]: {
+				...state[pageId],
+				...updatedProperties
+			}
+		}
+	}
+})
+
+pageStore.attachEffect((action, state) => {
+	if (action.type === 'UPDATE_PAGE') {
+		
+})
+
+export const usePageStore = () => useStore(pageStore)
+
+
+
 
 export default function MessageList({
-  chat,
-  refComposer,
-}: {
-  chat: ChatStoreState
-  refComposer: todo
+	chat,
+	refComposer
+} : {
+	chat: ChatStoreState,
+	refComposer: todo
 }) {
-  const [
-    {
-      oldestFetchedMessageIndex,
-      messages,
-      messageIds,
-      scrollToBottom,
-      scrollToBottomIfClose,
-      scrollToLastPage,
-      scrollHeight,
-    },
-    chatStoreDispatch,
-  ] = useChatStore()
-  const messageListRef = useRef(null)
-  const lastKnownScrollHeight = useRef<number>(null)
-  const isFetching = useRef(false)
 
-  useEffect(() => {
-    if (scrollToBottom === false) return
+	const [pages, pagesDispatch] = usePageStore()
 
-    log.debug(
-      'scrollToBottom',
-      messageListRef.current.scrollTop,
-      messageListRef.current.scrollHeight
-    )
-    messageListRef.current.scrollTop = messageListRef.current.scrollHeight
-    chatStoreDispatch({
-      type: 'FINISHED_SCROLL',
-      payload: 'SCROLLED_TO_BOTTOM',
-    })
+	const onSelectChat = () => {
+		setPages((pages) => { return {...pages, pageZero: {...pages.pageZero, loading: false}}})
+		;(async () => {
+			const _messageIds = await DeltaBackend.call('messageList.getMessageIds', chat.id)
+			const messageIds = [_messageIds[0], _messageIds[1], _messageIds[2]]
+			const messages = await DeltaBackend.call('messageList.getMessages', [messageIds[0], messageIds[1], messageIds[2]])
+			console.log(messages)
+			setPages((pages) => { return {...pages, pageZero: {...pages.pageZero, messageIds, messages, loading: false}}})
+		})()
+	}
 
-    // Try fetching more messages if needed
-    onScroll(null)
-  }, [scrollToBottom])
+	useEffect(onSelectChat, [])
+	useEffect(onSelectChat, [chat.id])
+	
 
-  useEffect(() => {
-    if (scrollToBottomIfClose === false) return
-    const scrollHeight = lastKnownScrollHeight.current
-    const { scrollTop, clientHeight } = messageListRef.current
-    const scrollBottom = scrollTop + clientHeight
+	const iterateMessages = (mapFunction: (key: string, messageId: MessageId, message: Message) => JSX.Element) => {
+		return (
+			<>
+				<MessagePage isPageZero={true} page={pages.pageZero} mapFunction={mapFunction} />
+				<MessagePage isPageZero={false} page={pages.pageOne} mapFunction={mapFunction} />
+			</>
+		)
+	}
 
-    const shouldScrollToBottom = scrollBottom >= scrollHeight - 7
 
-    log.debug(
-      'scrollToBottomIfClose',
-      scrollBottom,
-      scrollHeight,
-      shouldScrollToBottom
-    )
-
-    if (shouldScrollToBottom) {
-      messageListRef.current.scrollTop = messageListRef.current.scrollHeight
-    }
-
-    chatStoreDispatch({
-      type: 'FINISHED_SCROLL',
-      payload: 'SCROLLED_TO_BOTTOM',
-    })
-  }, [scrollToBottomIfClose])
-
-  useEffect(() => {
-    if (scrollToLastPage === false) return
-    // restore old scroll position after new messages are rendered
-    messageListRef.current.scrollTop =
-      messageListRef.current.scrollHeight - lastKnownScrollHeight.current
-    chatStoreDispatch({
-      type: 'FINISHED_SCROLL',
-      payload: 'SCROLLED_TO_LAST_PAGE',
-    })
-    isFetching.current = false
-  }, [scrollToLastPage, scrollHeight])
-
-  useEffect(() => {
-    isFetching.current = false
-
-    const composerTextarea = refComposer.current.childNodes[1]
-    composerTextarea && composerTextarea.focus()
-  }, [chat.id])
-
-  useEffect(() => {
-    const composerTextarea = refComposer.current.childNodes[1]
-    composerTextarea && composerTextarea.focus()
-    messageListRef.current.scrollTop = messageListRef.current.scrollHeight
-  }, [])
-
-  const [fetchMore] = useDebouncedCallback(
-    () => {
-      chatStoreDispatch({
-        type: 'FETCH_MORE_MESSAGES',
-        payload: { scrollHeight: messageListRef.current.scrollHeight },
-      })
-    },
-    30,
-    { leading: true }
-  )
-
-  const onScroll = (Event: React.UIEvent<HTMLDivElement>) => {
-    lastKnownScrollHeight.current = messageListRef.current.scrollHeight
-    if (messageListRef.current.scrollTop !== 0) return
-    if (isFetching.current === false) {
-      isFetching.current = true
-      log.debug('Scrolled to top, fetching more messsages!')
-      fetchMore()
-    }
-    Event?.preventDefault()
-    Event?.stopPropagation()
-    return false
-  }
-
-  return (
-    <MessageListInner
-      onScroll={onScroll}
-      oldestFetchedMessageIndex={oldestFetchedMessageIndex}
-      messageIds={messageIds}
-      messages={messages}
-      messageListRef={messageListRef}
-      chat={chat}
-    />
-  )
+	return <>
+		{iterateMessages((key, messageId, message) => {
+			return <div className='message' key={key}>
+			  key: {key}
+			  messageId: {messageId}
+			  message: {JSON.stringify(message)}
+			</div>
+		})}
+	</>
 }
 
-export const MessageListInner = React.memo(
-  (props: {
-    onScroll: (event: React.UIEvent<HTMLDivElement>) => void
-    oldestFetchedMessageIndex: number
-    messageIds: number[]
-    messages: ChatStoreState['messages']
-    messageListRef: todo
-    chat: ChatStoreState
-  }) => {
-    const {
-      onScroll,
-      oldestFetchedMessageIndex,
-      messageIds,
-      messages,
-      messageListRef,
+export function MessagePage(
+	{ 
+	  isPageZero,
+	  page,
+	  mapFunction
+	} : {
+		isPageZero: boolean,
+		page: MessageListPage,
+		mapFunction: (key: string, messageId: MessageId, message: Message) => JSX.Element
+	}) { 
+		const pageNumber = isPageZero ? 0 : 1;
+		return (
+			<div className={'message-list-page page-' + pageNumber} key={'page-' + pageNumber}>
+			  {"Is loading: " + page.loading}
+			  {page.messageIds.map((_messageId) => {
+				const messageId: MessageId = _messageId as MessageId 
+				const message: Message = page.messages[messageId]
+				const key = 'page-' + pageNumber + '-' + messageId
+				return mapFunction(key, messageId, message)
 
-      chat,
-    } = props
-
-    const _messageIdsToShow = messageIdsToShow(
-      oldestFetchedMessageIndex,
-      messageIds
-    )
-
-    let specialMessageIdCounter = 0
-
-    const conversationType: 'group' | 'direct' =
-      chat.type === C.DC_CHAT_TYPE_GROUP ? 'group' : 'direct'
-
-    return (
-      <div id='message-list' ref={messageListRef} onScroll={onScroll}>
-        <ul>
-          {messageIds.length === 0 && <EmptyChatMessage />}
-          {_messageIdsToShow.map((messageId, i) => {
-            if (messageId === C.DC_MSG_ID_DAYMARKER) {
-              const key = 'magic' + messageId + '_' + specialMessageIdCounter++
-              const nextMessage = messages[_messageIdsToShow[i + 1]]
-              if (!nextMessage) return null
-              return (
-                <DayMarker key={key} timestamp={nextMessage.msg.timestamp} />
-              )
-            }
-            const message = messages[messageId]
-            if (!message || message.msg == null) {
-              log.debug(`Missing message with id ${messageId}`)
-              return
-            }
-            return (
-              <MessageWrapper
-                key={messageId}
-                message={message as MessageType}
-                conversationType={conversationType}
-                isDeviceChat={chat.isDeviceChat}
-              />
-            )
-          })}
-        </ul>
-      </div>
-    )
-  },
-  (prevProps, nextProps) => {
-    const areEqual =
-      prevProps.messageIds === nextProps.messageIds &&
-      prevProps.messages === nextProps.messages &&
-      prevProps.oldestFetchedMessageIndex ===
-        nextProps.oldestFetchedMessageIndex
-
-    return areEqual
-  }
-)
-
-function EmptyChatMessage() {
-  const tx = useTranslationFunction()
-  const [chat] = useChatStore()
-
-  let emptyChatMessage = tx('chat_no_messages_hint', [chat.name, chat.name])
-
-  const showAllEmail = useDCConfigOnce('show_emails')
-
-  if (chat.isGroup && !chat.isDeaddrop) {
-    emptyChatMessage = chat.isUnpromoted
-      ? tx('chat_new_group_hint')
-      : tx('chat_no_messages')
-  } else if (chat.isSelfTalk) {
-    emptyChatMessage = tx('saved_messages_explain')
-  } else if (chat.isDeviceChat) {
-    emptyChatMessage = tx('device_talk_explain')
-  } else if (chat.isDeaddrop) {
-    emptyChatMessage =
-      Number(showAllEmail) !== C.DC_SHOW_EMAILS_ALL
-        ? tx('chat_no_contact_requests')
-        : tx('chat_no_messages')
-  }
-
-  return (
-    <li>
-      <div className='info-message big'>
-        <p>{emptyChatMessage}</p>
-      </div>
-    </li>
-  )
-}
-
-export function DayMarker(props: { timestamp: number }) {
-  const { timestamp } = props
-  const tx = useTranslationFunction()
-  return (
-    <div className='info-message'>
-      <p style={{ textTransform: 'capitalize' }}>
-        {moment.unix(timestamp).calendar(null, {
-          sameDay: `[${tx('today')}]`,
-          lastDay: `[${tx('yesterday')}]`,
-          lastWeek: 'LL',
-          sameElse: 'LL',
-        })}
-      </p>
-    </div>
-  )
-}
+			  })}
+			</div>
+		)
+	}

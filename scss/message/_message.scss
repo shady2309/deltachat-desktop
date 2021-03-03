@@ -386,6 +386,7 @@
   padding: 0 4px;
   padding-left: 9px;
   margin: 2px 0 5px 0;
+  height: 44px;
 
   // &.has-message:hover {
   //   background: rgba(0, 0, 0, 0.07);
@@ -401,9 +402,8 @@
 
   .quoted-text {
     font-size: 12px;
-    line-height: 12px;
     margin: 0;
-    max-height: 40px;
+    height: 30px;
     overflow: hidden;
     line-clamp: 3;
     display: -webkit-box;
