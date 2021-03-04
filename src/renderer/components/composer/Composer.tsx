@@ -276,7 +276,7 @@ export function useDraft(
   draftRef.current = draftState
 
   useEffect(() => {
-    log.debug('reloading chat because id changed', chatId)
+    log.debug('reloading draft because id changed', chatId)
     //load
     DeltaBackend.call('messageList.getDraft', chatId).then(newDraft => {
       if (!newDraft) {

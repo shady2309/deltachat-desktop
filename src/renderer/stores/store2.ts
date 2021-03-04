@@ -1,18 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect } from 'react'
 import { getLogger, Logger } from '../../shared/logger'
-
-export function useStore<T extends Store<any>>(
-  StoreInstance: T
-): [T extends Store<infer S> ? S : any, T['dispatch']] {
-  const [state, setState] = useState(StoreInstance.getState())
-
-  useEffect(() => {
-    StoreInstance.subscribe(setState)
-    return () => StoreInstance.unsubscribe(setState)
-  }, [])
-  // TODO: better return an object to allow destructuring
-  return [state, StoreInstance.dispatch.bind(StoreInstance)]
-}
 
 export type ActionType = string
 export type ActionPayload = any | undefined
@@ -27,8 +14,15 @@ export interface EffectInterface<S>{
   (action: Action, state: S, log: ReturnType<typeof getLogger>) : Promise<S>
 }
 
+
+export interface StoreListener<S>{
+  onStateChange: (state: S) => void,
+  onPushEffect: (a: Action) => void,
+  onPushLayoutEffect: (a: Action) => void
+}
+
 export class Store<S> {
-  private listeners: ((state: S) => void)[] = []
+  private listeners: StoreListener<S>[] = []
   private effects: {[key: string]: EffectInterface<S>} = {}
   private _log: ReturnType<typeof getLogger>
   
@@ -37,76 +31,105 @@ export class Store<S> {
     this._log = getLogger('renderer/stores/' + name)
   }
 
-  get log() {
+  private get log() {
     return this._log
-  }
-
-  actionLogger(type: ActionType): ReturnType<typeof getLogger> {
-    const {      
-      getStackTrace,
-      debug,
-      info,
-      warn,
-      isMainProcess,
-      channel,
-      error,
-       critical
-    } = this.log
-    return {
-      getStackTrace,
-      isMainProcess,
-      channel,
-      debug: (...args) => debug(type, ...args),
-      info: (...args) => info(type, ...args),
-      warn: (...args) => warn(type, ...args),
-      error: (...args) => error(type, ...args),
-      critical: (...args) => critical(type, ...args)
-    }
   }
 
   getState() {
     return this.state
   }
 
-  async dispatch(type: ActionType, payload: ActionPayload, id: ActionId) {
-    this.log.debug('DISPATCH of type', type)
-    let state = this.state
-    
-    const effect = this.effects[type]
-
-    const action: Action = { type, payload, id}
-    const updatedState = await effect(action, state, this.actionLogger(type))
-    
-    if (updatedState !== this.state) {
-      this.log.debug(
-        `DISPATCHING of "${type}" changed the state. Before:`,
-        this.state,
-        'After:',
-        state
-      )
-      this.log.debug(`DISPATCHING of "${type}" changed the state.`)
-      this.state = updatedState
-      this.listeners.forEach(listener => listener(this.state))
-    }
+  async dispatch(name: String, effect: (state: S) => Promise<S> | S): Promise<void> {
+    this.log.debug('DISPATCH of type', name)
+    const self = this
+    await this.setState(async (state) => {
+      const updatedState = await effect.call(self, state)
+      if (updatedState !== this.state) {
+        this.log.debug(
+          `DISPATCHING of "${name}" changed the state. Before:`,
+          this.state,
+          'After:',
+          updatedState
+        )
+        //this.log.debug(`DISPATCHING of "${effect.name}" changed the state.`)
+      }
+      return updatedState
+    })
   }
+  
 
-  subscribe(listener: (state: S) => void) {
+  private subscribe(listener: StoreListener<S>) {
     this.listeners.push(listener)
     return this.unsubscribe.bind(this, listener)
   }
 
-  unsubscribe(listener: (state: S) => void) {
+  private unsubscribe(listener: StoreListener<S>) {
     const index = this.listeners.indexOf(listener)
     this.listeners.splice(index, 1)
   }
 
-  attachEffect(actionType: ActionType, effect: (action: Action, state: S, log: Logger) => Promise<S | null>) {
-    this.effects[actionType] = effect
+  async setState(cb: (state: S) => Promise<S> | S) {
+    const updatedState = await cb(this.state)
+    if (!updatedState || updatedState === this.state) {
+      this.log.info('setState: state didn\'t change')
+      return
+    }
+    this.log.info('setState: state changed')
+    this.state = updatedState
+    for(let listener of this.listeners) {
+      listener.onStateChange(this.state)
+    }
+  }
+  
+  async pushEffect(action: Action) {
+    this.log.info('pushEffect: pushed effect ${action.type} ${action}')
+    for(let listener of this.listeners) {
+      listener.onPushEffect(action)
+    }
   }
 
-  setState(state: S) {
-    this.state = state
-    this.listeners.forEach(listener => listener(this.state))
+  async pushLayoutEffect(action: Action) {
+    this.log.info('pushLayoutEffect: pushed layout effect ${action.type} ${action}')
+    for(let listener of this.listeners) {
+      listener.onPushLayoutEffect(action)
+    }
+  }
+
+  useStore(onAction?: (action: Action) => void, onLayoutAction?: (action: Action) => void): S {
+    const self = this
+    console.log(self)
+    const [state, setState] = useState(self.getState())
+    const effectQueue: Action[] = []
+    const layoutEffectQueue: Action[] = []
+
+    useEffect(() => {
+      return self.subscribe({
+        onStateChange: setState,
+        onPushEffect: (a) => effectQueue.push(a),
+        onPushLayoutEffect: (a) => layoutEffectQueue.push(a)
+
+      })
+    }, [])
+    
+    useEffect(() => {
+      let count = effectQueue.length;
+      while (count > 0) {
+        const action = effectQueue.pop()
+        count--
+        onAction(action)
+      }      
+    }, [state._rendererEffectActions])
+    
+    useLayoutEffect(() => {
+      let count = layoutEffectQueue.length;
+      while (count > 0) {
+        const action = layoutEffectQueue.pop()
+        count--
+        onLayoutAction(action)
+      }      
+    }, [state._rendererEffectActions])
+
+    return state
   }
 }
 

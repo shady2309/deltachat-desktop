@@ -32,6 +32,7 @@ import { Avatar } from './Avatar'
 import OfflineToast from './OfflineToast'
 import { C } from 'deltachat-node/dist/constants'
 import MapComponent from './map/MapComponent'
+import { MessageListStore } from '../stores/messagelist'
 
 enum View {
   MessageList,
@@ -61,8 +62,11 @@ export default function MainScreen() {
     if (chatId === selectedChat.id) return
 
     chatStoreDispatch({ type: 'SELECT_CHAT', payload: chatId })
+    MessageListStore.selectChat(chatId)
+    
     setView(View.MessageList)
   }
+
   const searchChats = (queryStr: string) => setQueryStr(queryStr)
   const handleSearchChange = (event: { target: { value: '' } }) =>
     searchChats(event.target.value)
@@ -82,6 +86,7 @@ export default function MainScreen() {
     const lastChatId = getLastSelectedChatId()
     if (lastChatId) {
       chatStoreDispatch({ type: 'SELECT_CHAT', payload: lastChatId })
+      MessageListStore.selectChat(lastChatId)
     }
   }
 
