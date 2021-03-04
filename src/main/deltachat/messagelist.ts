@@ -1,4 +1,4 @@
-import { C } from 'deltachat-node'
+import { C, MessageState } from 'deltachat-node'
 import { getLogger } from '../../shared/logger'
 
 const log = getLogger('main/deltachat/messagelist')
@@ -70,6 +70,28 @@ export default class DCMessageList extends SplitOut {
 
   getMessageInfo(msgId: number) {
     return this._dc.getMessageInfo(msgId)
+  }
+
+  getFirstUnreadMessageId(chatId: number) {
+    const countFreshMessages = this._dc.getFreshMessageCount(chatId)
+    const messageIds = this._dc.getChatMessages(chatId, 0, 0)
+
+    let foundFreshMessages = 0
+    let firstUnreadMessageId = -1
+    for(let i = messageIds.length -1; i >= 0; i--) {
+      const messageId = messageIds[i]
+
+      if (!this._dc.getMessage(messageId).getState().isFresh()) continue
+        
+      foundFreshMessages++
+      firstUnreadMessageId = messageId
+
+      if (foundFreshMessages >= countFreshMessages) {
+        break
+      }
+    } 
+
+    return firstUnreadMessageId
   }
 
   async getDraft(chatId: number): Promise<MessageType | null> {

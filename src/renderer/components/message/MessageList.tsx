@@ -6,7 +6,7 @@ import { Action } from "../../stores/store2";
 
 
 
-export default function MessageList({
+const MessageList = React.memo(function MessageList({
 }) {
 
 	useEffect(() => { console.log('Rerendering MessageList')})
@@ -14,6 +14,9 @@ export default function MessageList({
 
 	}
 	const onMessageListStoreLayoutEffect = (action: Action) => {
+	  if (action.type === 'SELECTED_CHAT') {
+		  console.log('haaalloooo')
+	  }
 
 	}
 
@@ -41,7 +44,9 @@ export default function MessageList({
 		{JSON.stringify(messageListStore)}
 
 	</>
-}
+})
+
+export default MessageList
 
 export function MessagePage(
 { 

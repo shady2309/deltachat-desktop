@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useState, useEffect, useLayoutEffect } from 'react'
 import { getLogger, Logger } from '../../shared/logger'
 
@@ -21,6 +22,10 @@ export interface StoreListener<S>{
   onPushLayoutEffect: (a: Action) => void
 }
 
+export interface StoreDispatchSetState<S> {
+  (state: S) : Promise<void>
+}
+
 export class Store<S> {
   private listeners: StoreListener<S>[] = []
   private effects: {[key: string]: EffectInterface<S>} = {}
@@ -39,21 +44,25 @@ export class Store<S> {
     return this.state
   }
 
-  async dispatch(name: String, effect: (state: S) => Promise<S> | S): Promise<void> {
+  async dispatch(name: String, effect: (state: S, setState: StoreDispatchSetState<S>) => Promise<void>): Promise<void> {
     this.log.debug('DISPATCH of type', name)
     const self = this
-    await this.setState(async (state) => {
-      const updatedState = await effect.call(self, state)
-      if (updatedState !== this.state) {
+    const updatedState = await effect.call(self, self.state, async (updatedState: S) => {
+      if (updatedState === this.state) {
         this.log.debug(
-          `DISPATCHING of "${name}" changed the state. Before:`,
-          this.state,
-          'After:',
-          updatedState
+          `DISPATCHING of "${name}" didn't change the state. Returning.`,
         )
-        //this.log.debug(`DISPATCHING of "${effect.name}" changed the state.`)
+        return
       }
-      return updatedState
+      this.log.debug(
+        `DISPATCHING of "${name}" changed the state. Before:`,
+        this.state,
+        'After:',
+        updatedState
+      )
+      await this.setState(async (state) => {
+        return updatedState
+      }) 
     })
   }
   
@@ -82,14 +91,14 @@ export class Store<S> {
   }
   
   async pushEffect(action: Action) {
-    this.log.info('pushEffect: pushed effect ${action.type} ${action}')
+    this.log.info(`pushEffect: pushed effect ${action.type} ${action}`)
     for(let listener of this.listeners) {
       listener.onPushEffect(action)
     }
   }
 
   async pushLayoutEffect(action: Action) {
-    this.log.info('pushLayoutEffect: pushed layout effect ${action.type} ${action}')
+    this.log.info(`pushLayoutEffect: pushed layout effect ${action.type} ${action}`)
     for(let listener of this.listeners) {
       listener.onPushLayoutEffect(action)
     }
@@ -99,35 +108,31 @@ export class Store<S> {
     const self = this
     console.log(self)
     const [state, setState] = useState(self.getState())
-    const effectQueue: Action[] = []
-    const layoutEffectQueue: Action[] = []
+    const effectQueue = useRef<Action[]>([])
+    const layoutEffectQueue = useRef<Action[]>([])
 
     useEffect(() => {
       return self.subscribe({
         onStateChange: setState,
-        onPushEffect: (a) => effectQueue.push(a),
-        onPushLayoutEffect: (a) => layoutEffectQueue.push(a)
-
+        onPushEffect: (a) => effectQueue.current.push(a),
+        onPushLayoutEffect: (a) => layoutEffectQueue.current.push(a)
       })
     }, [])
     
     useEffect(() => {
-      let count = effectQueue.length;
-      while (count > 0) {
-        const action = effectQueue.pop()
-        count--
-        onAction(action)
-      }      
-    }, [state._rendererEffectActions])
+      this.log.debug('useEffect')
+      
+      while (effectQueue.current.length > 0) {
+        onAction(effectQueue.current.pop())
+      }
+    }, [state])
     
     useLayoutEffect(() => {
-      let count = layoutEffectQueue.length;
-      while (count > 0) {
-        const action = layoutEffectQueue.pop()
-        count--
-        onLayoutAction(action)
-      }      
-    }, [state._rendererEffectActions])
+      this.log.debug('useLayoutEffect')
+      while (layoutEffectQueue.current.length > 0) {
+        onLayoutAction(layoutEffectQueue.current.pop())
+      }
+    }, [state])
 
     return state
   }

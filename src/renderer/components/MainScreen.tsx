@@ -33,6 +33,7 @@ import OfflineToast from './OfflineToast'
 import { C } from 'deltachat-node/dist/constants'
 import MapComponent from './map/MapComponent'
 import { MessageListStore } from '../stores/messagelist'
+import { MessageViewType } from 'deltachat-node'
 
 enum View {
   MessageList,
@@ -64,7 +65,7 @@ export default function MainScreen() {
     chatStoreDispatch({ type: 'SELECT_CHAT', payload: chatId })
     MessageListStore.selectChat(chatId)
     
-    setView(View.MessageList)
+    if (view !== View.MessageList) setView(View.MessageList)
   }
 
   const searchChats = (queryStr: string) => setQueryStr(queryStr)
@@ -93,26 +94,6 @@ export default function MainScreen() {
   const tx = useTranslationFunction()
 
   const menu = <Menu selectedChat={selectedChat} />
-  let MessageListView
-  if (selectedChat.id !== null) {
-    switch (view) {
-      case View.Media:
-        MessageListView = <Gallery chat={selectedChat} />
-        break
-      case View.Map:
-        MessageListView = <MapComponent selectedChat={selectedChat} />
-        break
-      case View.MessageList:
-      default:
-        MessageListView = <MessageListAndComposer chat={selectedChat} />
-    }
-  } else {
-    MessageListView = (
-      <div className='no-chat-selected-screen'>
-        <h2>{tx('no_chat_selected_suggestion_desktop')}</h2>
-      </div>
-    )
-  }
 
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -259,9 +240,31 @@ export default function MainScreen() {
           onChatClick={onChatClick}
           selectedChatId={selectedChat ? selectedChat.id : null}
         />
-        {MessageListView}
+        <MessageListView view={view} selectedChat={selectedChat} />
       </div>
       <OfflineToast />
     </div>
   )
+}
+
+
+function MessageListView({selectedChat, view}: {selectedChat: any, view: View}) {
+    const tx = useTranslationFunction()
+ 
+    if (selectedChat.id === null) {
+      return (
+        <div className='no-chat-selected-screen'>
+          <h2>{tx('no_chat_selected_suggestion_desktop')}</h2>
+        </div>
+      )
+
+    }
+    return (
+      <>
+        {view === View.Media && <Gallery chat={selectedChat} />}
+        {view === View.Map && <MapComponent selectedChat={selectedChat} />}
+        {view === View.MessageList && <MessageListAndComposer chat={selectedChat} />}
+      </>
+    )
+
 }

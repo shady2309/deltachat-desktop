@@ -1,8 +1,9 @@
+import { MessageState } from "deltachat-node"
 import { getLogger } from "../../shared/logger"
 import { MessageType } from "../../shared/shared-types"
 import { DeltaBackend } from "../delta-remote"
 import { PAGE_SIZE } from "./chat"
-import { Store } from "./store2"
+import { Store, StoreDispatchSetState } from "./store2"
 
 export type MessageId = number
 const log = getLogger('renderer/message/MessageList')
@@ -58,55 +59,60 @@ export class PageStore extends Store<PageStoreState> {
   }
 
   selectChat(chatId: number) {
-    return this.dispatch('selectChat', async (state: PageStoreState) => {
+    return this.dispatch('selectChat', async (state: PageStoreState, setState) => {
       const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId)
+      const firstUnreadMessageId = await DeltaBackend.call('messageList.getFirstUnreadMessageId', chatId)
 
-      return {
-        pages: {},
-        pageOrdering: [],
+      let [pages, pageOrdering]: [PageStoreState['pages'], PageStoreState['pageOrdering']] = [{}, []]
+
+      if (firstUnreadMessageId !== -1) {
+        let tmp = await this._loadPageWithFirstMessage(messageIds, firstUnreadMessageId)
+        pages = tmp.pages
+        pageOrdering = tmp.pageOrdering
+      } else {
+        let tmp = await this._loadPageWithFirstMessage(messageIds, messageIds[messageIds.length - 1 - PAGE_SIZE])
+        pages = tmp.pages
+        pageOrdering = tmp.pageOrdering
+      }
+      
+      this.pushLayoutEffect({type: 'SELECTED_CHAT', payload: {firstUnreadMessageId}, id: chatId})
+      
+      setState({
+        pages,
+        pageOrdering,
         chatId,
         messageIds,
         loading: false
-      }
+      })
     })
   }
   
-  loadPageWithFirstMessage(messageId: number) {
-    return this.dispatch('loadPageWithFirstMessage', async (state: PageStoreState) => {
-      if (state.loading === true) {
-        log.warn(`LOAD_PAGE_FROM_MESSAGE_ID: We are already loading something, bailing out`)
-        return
-      }
-      this.setState(state => {return {...state, loading: true}})
+  async _loadPageWithFirstMessage(messageIds: number[], messageId: number) {
+    const pageFirstMessageIdIndex = messageIds.indexOf(messageId)
 
-      const pageFirstMessageIdIndex = state.messageIds.indexOf(messageId)
+    if (pageFirstMessageIdIndex === -1) {
+      log.warn(`_loadPageWithFirstMessage: messageId ${messageId} is not in messageIds`)
+    }
+    
+    const pageMessageIds = messageIds.slice(pageFirstMessageIdIndex, pageFirstMessageIdIndex + PAGE_SIZE);
+    const pageLastMessageIdIndex = pageFirstMessageIdIndex + pageMessageIds.length - 1
+    
+    const pageMessages = await DeltaBackend.call('messageList.getMessages', pageMessageIds)
 
-      if (pageFirstMessageIdIndex === -1) {
-        log.warn(`LOAD_PAGE_FROM_MESSAGE_ID: messageId ${messageId} is not in messageIds`)
-      }
-      
-      const pageMessageIds = state.messageIds.slice(pageFirstMessageIdIndex, pageFirstMessageIdIndex + PAGE_SIZE);
-      const pageLastMessageIdIndex = pageFirstMessageIdIndex + pageMessageIds.length - 1
-      
-      const pageMessages = await DeltaBackend.call('messageList.getMessages', pageMessageIds)
-
-      const pageKey = `page-${pageFirstMessageIdIndex}-${pageLastMessageIdIndex}
-      `
-      return {
-        ...state,
-        pages: {
-          [pageKey]: {
-            firstMessageIdIndex: pageFirstMessageIdIndex,
-            lastMessageIdIndex: pageLastMessageIdIndex,
-            messageIds: pageMessageIds,
-            messages: pageMessages,
-            key: pageKey
-          }
-        },
-        pageOrdering: [pageKey],
-        loading: false			
-      }
-    })
+    const pageKey = `page-${pageFirstMessageIdIndex}-${pageLastMessageIdIndex}`
+    
+    return {
+      pages: {
+        [pageKey]: {
+          firstMessageIdIndex: pageFirstMessageIdIndex,
+          lastMessageIdIndex: pageLastMessageIdIndex,
+          messageIds: pageMessageIds,
+          messages: pageMessages,
+          key: pageKey
+        }
+      },
+      pageOrdering: [pageKey],
+    }
   }
 }
 
