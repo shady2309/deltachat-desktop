@@ -70,7 +70,8 @@ export class PageStore extends Store<PageStoreState> {
         pages = tmp.pages
         pageOrdering = tmp.pageOrdering
       } else {
-        let tmp = await this._loadPageWithFirstMessage(messageIds, messageIds[messageIds.length - 1 - PAGE_SIZE])
+        let firstMessageIndexOnLastPage = Math.max(0, messageIds.length - 1 - PAGE_SIZE)
+        let tmp = await this._loadPageWithFirstMessage(messageIds, messageIds[firstMessageIndexOnLastPage])
         pages = tmp.pages
         pageOrdering = tmp.pageOrdering
       }
@@ -87,11 +88,15 @@ export class PageStore extends Store<PageStoreState> {
     })
   }
   
-  async _loadPageWithFirstMessage(messageIds: number[], messageId: number) {
+  async _loadPageWithFirstMessage(messageIds: number[], messageId: number) : Promise<{pages: PageStoreState['pages'], pageOrdering: PageStoreState['pageOrdering']}> {
     const pageFirstMessageIdIndex = messageIds.indexOf(messageId)
 
     if (pageFirstMessageIdIndex === -1) {
       log.warn(`_loadPageWithFirstMessage: messageId ${messageId} is not in messageIds`)
+      return {
+        pages: {},
+        pageOrdering: []
+      }
     }
     
     const pageMessageIds = messageIds.slice(pageFirstMessageIdIndex, pageFirstMessageIdIndex + PAGE_SIZE);

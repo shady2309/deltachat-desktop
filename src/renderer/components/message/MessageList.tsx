@@ -1,8 +1,9 @@
 import { ChatStoreState } from "../../stores/chat";
 import React, { useEffect } from 'react'
-import { Message } from "deltachat-node";
-import { MessageId, MessageListPage, MessageListStore } from "../../stores/messagelist";
+import { MessageId, Message, MessageListPage, MessageListStore } from "../../stores/messagelist";
 import { Action } from "../../stores/store2";
+import { MessageWrapper } from "./MessageWrapper";
+import { MessageType } from "../../../shared/shared-types";
 
 
 
@@ -35,14 +36,17 @@ const MessageList = React.memo(function MessageList({
 
 	return <>
 		{iterateMessages((key, messageId, message) => {
-			return <div className='message' key={key}>
-			  key: {key}
-			  messageId: {messageId}
-			  message: {JSON.stringify(message)}
-			</div>
+			console.log(key)
+			if (messageId === 9) return null
+			return (
+		      <MessageWrapper
+				key={key}
+				message={message as MessageType}
+				conversationType={'direct'}
+				isDeviceChat={false}
+			  />
+			)
 		})}
-		{JSON.stringify(messageListStore)}
-
 	</>
 })
 
@@ -59,10 +63,10 @@ export function MessagePage(
 	return (
 		<div className={'message-list-page'} key={page.key}>
 		  {"Is loading: " + page}
-		  {page.messageIds.map((_messageId) => {
+		  {page.messageIds.map((_messageId, index) => {
 			const messageId: MessageId = _messageId as MessageId 
 			const message: Message = page.messages[messageId]
-			const key = page.key + '-' + messageId
+			const key = page.key + '-' + messageId + '-' + index
 			return mapFunction(key, messageId, message)
 
 		  })}
