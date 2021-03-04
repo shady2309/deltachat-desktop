@@ -38,7 +38,7 @@ export interface Action {
 export class Store<S> {
   private listeners: ((state: S) => void)[] = []
   private reducers: ((action: Action, state: S) => S)[] = []
-  private effects: ((action: Action, state: S) => void)[] = []
+  private effects: ((action: Action, state: S) => S)[] = []
   private _log: ReturnType<typeof getLogger>
   constructor(public state: S, name?: string) {
     if (!name) name = 'Store'

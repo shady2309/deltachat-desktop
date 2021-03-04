@@ -2,7 +2,7 @@ import { ChatStoreState, PAGE_SIZE } from "../../stores/chat";
 import React, { useEffect } from 'react'
 import { DeltaBackend } from "../../delta-remote";
 import { MessageType } from "../../../shared/shared-types";
-import { Store, useStore2 } from "../../stores/store";
+import { Action, Store, useStore } from "../../stores/store2";
 import { getLogger } from "../../../shared/logger";
 
 
@@ -39,18 +39,24 @@ export class PageStoreState {
 	loading: boolean
 }
 
+export function defaultPageStoreState(): PageStoreState {
+	return {
+		pages: {},
+		pageOrdering: [],
+		chatId: -1,
+		messageIds: [],
+		loading: false
+	}
+}
+
 export type FixedSizeArray<N extends number, T> = N extends 0 ? never[] : {
     0: T;
     length: N;
 } & ReadonlyArray<T>;
 
+const pageStore  = new Store<PageStoreState>(defaultPageStoreState(), 'MessageListPageStore');
 
-
-
-const pageStore  = new Store<PageStoreState>(new PageStoreState(), 'MessageListPageStore');
-
-
-function updatePage(state: PageStoreState, pageKey: string, updateObj: todo) {
+function updatePage(state: PageStoreState, pageKey: string, updateObj: Partial<MessageListPage>): PageStoreState {
 	return {
 		...state,
 		pages: {
@@ -63,79 +69,83 @@ function updatePage(state: PageStoreState, pageKey: string, updateObj: todo) {
 	}
 }
 
-pageStore.attachReducer((action, state) => {
+
+interface UpdatePageAction extends Action {
+	payload: Partial<MessageListPage>
+}
+pageStore.attachEffect('UPDATE_PAGE', async (action: UpdatePageAction, state)  => {
 	if (action.id !== state.chatId) return
 
-	if (action.type === 'UPDATE_PAGE') {
-	    const {pageId, ...updateProperties}  = action.payload
-		return updatePage(state, pageId, updateProperties)
+	const {key, ...updateProperties}  = action.payload
+	return updatePage(state, key, updateProperties)
+})
+
+interface SelectChatPageAction extends Action {
+	payload: {
+		chatId: number
+	},
+	chatId: undefined
+}
+pageStore.attachEffect('SELECT_CHAT', async (action: SelectChatPageAction, state) => {
+	const {chatId} = action.payload
+	const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId)
+
+
+	return {
+		pages: {},
+		pageOrdering: [],
+		chatId,
+		messageIds,
+		loading: false
 	}
 })
 
-
-pageStore.attachEffect(async (action, state) => {
-
-	if (action.type === 'SELECT_CHAT') {
-		const {chatId} = action.payload
-		const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId)
-
-
-		return {
-			pages: [],
-			pageOrdering: [],
-			chatId,
-			messageIds,
-			loading: false
-		}
+interface LoadPageWithFirstmessageIdPageAction extends Action {
+	payload: {
+		messageId: number
 	}
-
+	chatId: number
+}
+pageStore.attachEffect('LOAD_PAGE_WITH_FIRST_MESSAGE_ID', async (action: LoadPageWithFirstmessageIdPageAction, state) => {
 	if (action.id !== state.chatId) return
 	
-	if (action.type === 'LOAD_PAGE_WITH_FIRST_MESSAGE_ID') {
-		if (state.loading === true) {
-			log.warn(`LOAD_PAGE_FROM_MESSAGE_ID: We are already loading something, bailing out`)
-			return
-		}
-		pageStore.setState({...state, loading: true})
-
-		const {messageId} = action.payload
-		const pageFirstMessageIdIndex = state.messageIds.indexOf(messageId)
-
-		if (pageFirstMessageIdIndex === -1) {
-			log.warn(`LOAD_PAGE_FROM_MESSAGE_ID: messageId ${messageId} is not in messageIds`)
-		}
-		
-		const pageMessageIds = state.messageIds.slice(pageFirstMessageIdIndex, pageFirstMessageIdIndex + PAGE_SIZE);
-		const pageLastMessageIdIndex = pageFirstMessageIdIndex + pageMessageIds.length - 1
-		
-		const pageMessages = await DeltaBackend.call('messageList.getMessages', pageMessageIds)
-
-		const pageKey = `page-${pageFirstMessageIdIndex}-${pageLastMessageIdIndex}
-		`
-		return {
-			...state,
-			pages: {
-				[pageKey]: {
-					firstMessageIdIndex: pageFirstMessageIdIndex,
-					lastMessageIdIndex: pageLastMessageIdIndex,
-					messageIds: pageMessageIds,
-					messages: pageMessages,
-					key: pageKey
-				}
-			},
-			pageOrdering: [pageKey],
-			loading: false			
-		}
-
+	if (state.loading === true) {
+		log.warn(`LOAD_PAGE_FROM_MESSAGE_ID: We are already loading something, bailing out`)
+		return
 	}
+	pageStore.setState({...state, loading: true})
 
-		
+	const {messageId} = action.payload
+	const pageFirstMessageIdIndex = state.messageIds.indexOf(messageId)
+
+	if (pageFirstMessageIdIndex === -1) {
+		log.warn(`LOAD_PAGE_FROM_MESSAGE_ID: messageId ${messageId} is not in messageIds`)
+	}
+	
+	const pageMessageIds = state.messageIds.slice(pageFirstMessageIdIndex, pageFirstMessageIdIndex + PAGE_SIZE);
+	const pageLastMessageIdIndex = pageFirstMessageIdIndex + pageMessageIds.length - 1
+	
+	const pageMessages = await DeltaBackend.call('messageList.getMessages', pageMessageIds)
+
+	const pageKey = `page-${pageFirstMessageIdIndex}-${pageLastMessageIdIndex}
+	`
+	return {
+		...state,
+		pages: {
+			[pageKey]: {
+				firstMessageIdIndex: pageFirstMessageIdIndex,
+				lastMessageIdIndex: pageLastMessageIdIndex,
+				messageIds: pageMessageIds,
+				messages: pageMessages,
+				key: pageKey
+			}
+		},
+		pageOrdering: [pageKey],
+		loading: false			
+	}
 })
 
-export const usePageStore = () => useStore2(pageStore)
-
-
-
+export const usePageStore = () => useStore(pageStore)
 
 export default function MessageList({
 	chat} : {
