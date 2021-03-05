@@ -13,10 +13,14 @@ import {
   MessageSearchResult,
   MessageTypeAttachment,
   msgStatus,
+  Message2,
 } from '../../shared/shared-types'
 
 import { writeFile } from 'fs-extra'
 import tempy from 'tempy'
+import { getAccountsPath } from '../application-constants'
+import { join } from 'path'
+import { MessageType2 } from '../../shared/shared'
 export default class DCMessageList extends SplitOut {
   sendMessage(
     chatId: number,
@@ -193,7 +197,53 @@ export default class DCMessageList extends SplitOut {
     )
     return messageIds
   }
+  async getMessages2(chatId: number, indexStart: number, indexEnd: number): Promise<Message2[]> {
+    const messageIds = this.getMessageIds(chatId)
 
+    let length = indexEnd - indexStart
+    let messages: Message2[] = new Array(length)
+    for (let i = 0; i <= length; i++) {
+      const messageIndex = indexStart + i
+      const messageId = messageIds[messageIndex]
+      
+      let messageObject: Message2 = null;
+      if (messageId == C.DC_MSG_ID_DAYMARKER) {
+        const nextMessageIndex = messageIndex + 1
+        const nextMessageId = messageIds[nextMessageIndex]
+        const nextMessageTimestamp = this._dc.getMessage(nextMessageId).getTimestamp()
+        messageObject = {
+          type: MessageType2.DayMarker,
+          message: {
+            timestamp: nextMessageTimestamp
+          }
+        }
+      } else if (messageId === C.DC_MSG_ID_MARKER1) {
+        messageObject = {
+          type: MessageType2.MarkerOne,
+          message: null
+        }
+
+      } else if (messageId <= C.DC_MSG_ID_LAST_SPECIAL) {
+        log.debug(`getMessages2: not sure what do with this messageId: ${messageId}, skipping`)
+        
+      } else {
+        const msg = this._dc.getMessage(messageId)
+        if(msg) {
+          const message = this._messageToJson(msg)
+          messageObject = {
+            type: MessageType2.Message,
+            message
+          }
+
+        }
+      }
+      
+      messages[i] = messageObject
+    }
+    return messages
+
+  }
+  
   getMessages(messageIds: number[]) {
     const messages: {
       [key: number]: ReturnType<typeof DCMessageList.prototype.messageIdToJson>
