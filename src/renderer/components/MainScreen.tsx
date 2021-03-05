@@ -14,6 +14,7 @@ import { useChatStore } from '../stores/chat'
 import {
   openEditGroupDialog,
   openViewProfileDialog,
+  selectChat,
 } from './helpers/ChatMethods'
 
 import {
@@ -62,9 +63,7 @@ export default function MainScreen() {
     // avoid double clicks
     if (chatId === selectedChat.id) return
 
-    chatStoreDispatch({ type: 'SELECT_CHAT', payload: chatId })
-    MessageListStore.selectChat(chatId)
-    
+    selectChat(chatId)
     if (view !== View.MessageList) setView(View.MessageList)
   }
 
@@ -86,8 +85,7 @@ export default function MainScreen() {
     setFirstLoad(false)
     const lastChatId = getLastSelectedChatId()
     if (lastChatId) {
-      chatStoreDispatch({ type: 'SELECT_CHAT', payload: lastChatId })
-      MessageListStore.selectChat(lastChatId)
+      selectChat(lastChatId)
     }
   }
 

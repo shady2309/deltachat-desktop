@@ -7,7 +7,6 @@ import ChatListItem, {
 } from './ChatListItem'
 import { PseudoListItemAddContact } from '../helpers/PseudoListItem'
 import { C } from 'deltachat-node/dist/constants'
-import { selectChat } from '../../stores/chat'
 import { DeltaBackend } from '../../delta-remote'
 import { isValidEmail } from '../../../shared/util'
 import { ContactListItem } from '../contact/ContactListItem'
@@ -30,7 +29,7 @@ import { ipcBackend } from '../../ipc'
 import { ScreenContext } from '../../contexts'
 import { KeybindAction, useKeyBindingAction } from '../../keybindings'
 import { getLogger } from '../../../shared/logger'
-import { openViewProfileDialog } from '../helpers/ChatMethods'
+import { openViewProfileDialog, selectChat } from '../helpers/ChatMethods'
 import { MessageListStore } from '../../stores/messagelist'
 
 const log = getLogger('renderer/chatlist')

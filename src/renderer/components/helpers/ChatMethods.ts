@@ -7,6 +7,7 @@ import { C } from 'deltachat-node/dist/constants'
 import { runtime } from '../../runtime'
 import { getLogger } from '../../../shared/logger'
 import AlertDialog from '../dialogs/AlertDialog'
+import { MessageListStore } from '../../stores/messagelist'
 
 const log = getLogger('renderer/message')
 
@@ -150,4 +151,9 @@ export async function joinCall(
     log.error('failed to join call', error)
     screenContext.openDialog(AlertDialog, { message: error.toString() })
   }
+}
+
+export const selectChat = (chatId: number) => {
+  chatStore.dispatch({ type: 'SELECT_CHAT', payload: chatId })
+  MessageListStore.selectChat(chatId)
 }
