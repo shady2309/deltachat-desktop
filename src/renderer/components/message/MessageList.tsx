@@ -5,6 +5,7 @@ import { Action } from "../../stores/store2";
 import { MessageWrapper } from "./MessageWrapper";
 import { MessageType } from "../../../shared/shared-types";
 import { getLogger } from "../../../shared/logger";
+import LoginForm from "../LoginForm";
 
 const log = getLogger('renderer/message/MessageList')
 
@@ -61,7 +62,7 @@ const MessageList = React.memo(function MessageList({
 		log.debug(`SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: messageListWrapperHeight: ${messageListWrapperHeight} scrollHeight: ${scrollHeight}`)
 		if (scrollHeight <= messageListWrapperHeight) {
 			MessageListStore.doneCurrentlyLoadingPage()
-			MessageListStore.loadPageBefore([{
+			MessageListStore.loadPageBefore([], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {}, id: messageListStore.chatId}
 			}])
@@ -97,58 +98,78 @@ const MessageList = React.memo(function MessageList({
 			console.debug(lastPageElement)
 			const scrollToY = (messageListRef.current.scrollHeight - messageListRef.current.clientHeight - lastPageElement.clientHeight)
 			log.debug(`SCROLL_BEFORE_LAST_PAGE scrollToY ${scrollToY}`)		  
-			messageListRef.current.scrollTo(0, scrollToY)
+			messageListRef.current.scrollTop = scrollToY
 			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 		})
-	  } else if (action.type === 'DELETE_LAST_PAGE_IF_POSSIBLE') {
-		log.debug(`DELETE_LAST_PAGE_IF_POSSIBLE`)		  
-		const scrollHeight = messageListRef.current.scrollHeight
-		const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
-		const lastPageKey = messageListStore.pageOrdering[messageListStore.pageOrdering.length - 1]
-		const lastPageHeight = document.querySelector('#' + lastPageKey).clientHeight
-		
-		if (scrollHeight - lastPageHeight > 4 * messageListWrapperHeight) {
-			MessageListStore.removePage(lastPageKey)
-		}
-	  } else if (action.type === 'DELETE_FIRST_PAGE_IF_POSSIBLE') {
-		log.debug(`DELETE_FIRST_PAGE_IF_POSSIBLE`)		  
-		const scrollHeight = messageListRef.current.scrollHeight
-		const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
-		const firstPageKey = messageListStore.pageOrdering[0]
-		const firstPageHeight = document.querySelector('#' + firstPageKey).clientHeight
-		
-		if (scrollHeight - firstPageHeight > 4 * messageListWrapperHeight) {
-			MessageListStore.removePage(firstPageKey)
-		}
 	  }
 	}
 
 	const messageListStore = MessageListStore.useStore(onMessageListStoreEffect, onMessageListStoreLayoutEffect)
 	
+	
 	const onMessageListTop: IntersectionObserverCallback = (entries) => {
-		if(!entries[0].isIntersecting || MessageListStore.currentlyLoadingPage === true) return
-		log.debug('onMessageListTop')
-		MessageListStore.loadPageBefore([
+		const pageOrdering = MessageListStore.state.pageOrdering
+		log.debug(`onMessageListTop ${JSON.stringify(pageOrdering)}`)
+		if(!entries[0].isIntersecting || MessageListStore.currentlyLoadingPage === true || pageOrdering.length === 0) return
+		let withoutPages = []
+		let withoutPagesHeight = messageListRef.current.scrollHeight
+		const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
+		
+		log.debug(`onMessageListTop messageListWrapperHeight: ${messageListWrapperHeight} withoutPagesHeight: ${withoutPagesHeight}`)
+
+		for (let i = pageOrdering.length - 1; i >= 0; i--) {
+			const pageKey = pageOrdering[i]
+			log.debug(`onMessageListTop: pageKey: ${pageKey} i: ${i}`)
+			const pageElement = document.querySelector('#' + pageKey)
+			if (!pageElement) {
+				log.debug(`onMessageListTop: could not find dom element of pageKey: ${pageKey}. Skipping.`)
+				continue
+			}
+			const pageHeight = pageElement.clientHeight
+			const updatedWithoutPagesHeight = withoutPagesHeight - pageHeight
+			log.debug(`onMessageListTop messageListWrapperHeight: ${messageListWrapperHeight} updatedWithoutPagesHeight: ${updatedWithoutPagesHeight}`)
+
+			if (updatedWithoutPagesHeight > messageListWrapperHeight * 4) {
+				withoutPages.push(pageKey)
+				withoutPagesHeight = updatedWithoutPagesHeight
+			} else {
+				log.debug(`onMessageListTop: Found all removable pages. Breaking.`)
+				break
+			}
+		}
+		
+		log.debug(`onMessageListTop: withoutPages: ${JSON.stringify(withoutPages)}`)
+
+		MessageListStore.loadPageBefore(withoutPages, [
 			{
 				isLayoutEffect: true,
 				action: {type: 'SCROLL_BEFORE_FIRST_PAGE', payload: {}, id: messageListStore.chatId}
 			},
-			{
-				isLayoutEffect: true,
-				action: {type: 'DELETE_LAST_PAGE_IF_POSSIBLE', payload: {}, id: messageListStore.chatId}
-				
-			}
 		])
 
 	}
 	const onMessageListBottom: IntersectionObserverCallback = (entries)  => {
+		const pageOrdering = MessageListStore.state.pageOrdering
+		log.debug(`onMessageListBottom ${JSON.stringify(pageOrdering)}`)
 		if(!entries[0].isIntersecting || MessageListStore.currentlyLoadingPage === true) return
 		log.debug('onMessageListBottom')
-		MessageListStore.loadPageAfter([
-			{
-				isLayoutEffect: true,
-				action: {type: 'DELETE_FIRST_PAGE_IF_POSSIBLE', payload: {}, id: messageListStore.chatId}
-			},
+		let withoutPages = []
+		let withoutPagesHeight = messageListRef.current.scrollHeight
+		const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
+
+		for (let i = 0; i < pageOrdering.length; i++) {
+			const pageKey = pageOrdering[i]
+			const pageHeight = document.querySelector('#' + pageKey).clientHeight
+			const updatedWithoutPagesHeight = withoutPagesHeight - pageHeight
+
+			if (updatedWithoutPagesHeight > messageListWrapperHeight * 4) {
+				withoutPages.push(pageKey)
+				withoutPagesHeight = updatedWithoutPagesHeight
+			} else {
+				break
+			}
+		}
+		MessageListStore.loadPageAfter(withoutPages, [
 			{
 				isLayoutEffect: true,
 				action: {type: 'SCROLL_BEFORE_LAST_PAGE', payload: {}, id: messageListStore.chatId}

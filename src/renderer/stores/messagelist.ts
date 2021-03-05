@@ -84,13 +84,13 @@ export class PageStore extends Store<PageStoreState> {
       let [pages, pageOrdering]: [PageStoreState['pages'], PageStoreState['pageOrdering']] = [{}, []]
 
       if (firstUnreadMessageId !== -1) {
-        let tmp = await this._loadPageWithFirstMessage(messageIds, firstUnreadMessageId)
+        let tmp = await this._loadPageWithFirstMessageIndex(messageIds, messageIds.indexOf(firstUnreadMessageId))
         pages = tmp.pages
         pageOrdering = tmp.pageOrdering
         this.pushLayoutEffect({type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {msgId: firstUnreadMessageId}, id: chatId})
       } else {
         let firstMessageIndexOnLastPage = Math.max(0, messageIds.length - PAGE_SIZE)
-        let tmp = await this._loadPageWithFirstMessage(messageIds, messageIds[firstMessageIndexOnLastPage])
+        let tmp = await this._loadPageWithFirstMessageIndex(messageIds, firstMessageIndexOnLastPage)
         pages = tmp.pages
         pageOrdering = tmp.pageOrdering
         this.pushLayoutEffect({type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {}, id: chatId})
@@ -112,8 +112,9 @@ export class PageStore extends Store<PageStoreState> {
       const message = await DeltaBackend.call('messageList.getMessage', messageId)
       const chatId = message.msg.chatId
       const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId)
+      const messageIndex = messageIds.indexOf(messageId)
 
-      let {pages, pageOrdering} = await this._loadPageWithFirstMessage(messageIds, messageId)
+      let {pages, pageOrdering} = await this._loadPageWithFirstMessageIndex(messageIds, messageIndex)
       this.pushLayoutEffect({type: 'SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {pageKey: pageOrdering[0]}, id: chatId})
       
       
@@ -129,7 +130,7 @@ export class PageStore extends Store<PageStoreState> {
   }
   
 
-  async loadPageBefore(dispatchesAfter?: DispatchesAfter) {
+  async loadPageBefore(withoutPages: string[], dispatchesAfter?: DispatchesAfter) {
     return this.dispatch('loadPageBefore', async (state: PageStoreState, setState) => {
       const firstPage = state.pages[state.pageOrdering[0]]
       
@@ -147,22 +148,25 @@ export class PageStore extends Store<PageStoreState> {
         return
       }
 
-      const tmp = await this._loadPageWithFirstMessage(state.messageIds, state.messageIds[firstMessageIdIndexOnPageBefore])
+      const tmp = await this._loadPageWithFirstMessageIndex(state.messageIds, firstMessageIdIndexOnPageBefore)
+
+
+      let modifiedState = this._withoutPages(this.state, withoutPages)
+
 
       this.dispatchesAfter(dispatchesAfter)
-
       setState({
-        ...this.state,
-        pageOrdering: [...tmp.pageOrdering, ...this.state.pageOrdering],
+        ...modifiedState,
+        pageOrdering: [...tmp.pageOrdering, ...modifiedState.pageOrdering],
         pages: {
-          ...this.state.pages,
+          ...modifiedState.pages,
           ...tmp.pages
         }
       })
     })
   }
   
-  async loadPageAfter(dispatchesAfter?: DispatchesAfter) {
+  async loadPageAfter(withoutPages: string[], dispatchesAfter?: DispatchesAfter) {
     return this.dispatch('loadPageAfter', async (state: PageStoreState, setState) => {
       const lastPage = state.pages[state.pageOrdering[state.pageOrdering.length - 1]]
       
@@ -180,15 +184,16 @@ export class PageStore extends Store<PageStoreState> {
         return
       }
 
-      const tmp = await this._loadPageWithFirstMessage(state.messageIds, state.messageIds[firstMessageIdIndexOnPageAfter])
+      const tmp = await this._loadPageWithFirstMessageIndex(state.messageIds, firstMessageIdIndexOnPageAfter)
+      
+      let modifiedState = this._withoutPages(this.state, withoutPages)
 
       this.dispatchesAfter(dispatchesAfter)
-
       setState({
-        ...this.state,
-        pageOrdering: [...this.state.pageOrdering, ...tmp.pageOrdering],
+        ...modifiedState,
+        pageOrdering: [...modifiedState.pageOrdering, ...tmp.pageOrdering],
         pages: {
-          ...this.state.pages,
+          ...modifiedState.pages,
           ...tmp.pages
         }
       })
@@ -198,8 +203,16 @@ export class PageStore extends Store<PageStoreState> {
   doneCurrentlyLoadingPage() {
     this.currentlyLoadingPage = false
   }
-  async _loadPageWithFirstMessage(messageIds: number[], messageId: number) : Promise<{pages: PageStoreState['pages'], pageOrdering: PageStoreState['pageOrdering']}> {
-    const pageFirstMessageIdIndex = messageIds.indexOf(messageId)
+  async _loadPageWithFirstMessageIndex(messageIds: number[], pageFirstMessageIdIndex: number) : Promise<{pages: PageStoreState['pages'], pageOrdering: PageStoreState['pageOrdering']}> {
+    if (pageFirstMessageIdIndex < 0 || pageFirstMessageIdIndex >= messageIds.length) {
+      log.warn(`_loadPageWithFirstMessage: pageFirstMessageIdIndex out of bound, returning`)
+      return {
+        pages: {},
+        pageOrdering: []
+      }
+
+    }
+    const messageId = messageIds[pageFirstMessageIdIndex]
 
     if (this.currentlyLoadingPage === true) {
       log.warn(`_loadPageWithFirstMessage: we are already loading a page, returning`)
@@ -242,16 +255,32 @@ export class PageStore extends Store<PageStoreState> {
   
   removePage(pageKey: string) {
     this.dispatch('removePage', async (state, setState) => {
-      setState({
-        ...state,
-        pageOrdering: state.pageOrdering.filter(value => value !== pageKey),
-        pages: {
-          ...state.pages,
-          [pageKey]: undefined
-        }
-      })
+      setState(this._withoutPages(state, [pageKey]))
     })
   } 
+  
+  _withoutPages(state: PageStoreState, withoutPageKeys: string[]): PageStoreState {
+    let pages: Partial<PageStoreState['pages']> = {}
+    let pageOrdering: Partial<PageStoreState['pageOrdering']> = []
+    
+    let modified = false
+    for (let pageKey of state.pageOrdering) {
+      const without = withoutPageKeys.indexOf(pageKey) !== -1
+     
+      if (without) continue
+      modified = true
+      pages[pageKey] = state.pages[pageKey]
+      pageOrdering.push(pageKey)
+    }
+
+    if (!modified) return state
+
+    return {
+        ...state,
+        pageOrdering,
+        pages
+      }
+    }
 }
 
 export const MessageListStore = new PageStore(defaultPageStoreState(), 'MessageListPageStore');
