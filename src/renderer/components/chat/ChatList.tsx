@@ -31,6 +31,7 @@ import { ScreenContext } from '../../contexts'
 import { KeybindAction, useKeyBindingAction } from '../../keybindings'
 import { getLogger } from '../../../shared/logger'
 import { openViewProfileDialog } from '../helpers/ChatMethods'
+import { MessageListStore } from '../../stores/messagelist'
 
 const log = getLogger('renderer/chatlist')
 
@@ -313,10 +314,8 @@ export default function ChatList(props: {
                             <ChatListItemMessageResult
                               queryStr={queryStr}
                               msr={messageCache[msrId]}
-                              onClick={() => {
-                                openDialog('MessageDetail', {
-                                  id: msrId,
-                                })
+                              onClick={async () => {
+                                MessageListStore.jumpToMessage(msrId)
                               }}
                             />
                           ) : (

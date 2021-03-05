@@ -5,7 +5,7 @@ import { DeltaBackend } from '../delta-remote'
 import { runtime } from '../runtime'
 import { ActionEmitter, KeybindAction } from '../keybindings'
 
-export const PAGE_SIZE = 10
+export const PAGE_SIZE = 20
 
 class state implements FullChat {
   contactIds: number[]

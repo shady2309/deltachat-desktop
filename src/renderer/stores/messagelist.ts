@@ -107,6 +107,27 @@ export class PageStore extends Store<PageStoreState> {
     })
   }
   
+  async jumpToMessage(messageId: number) {
+    return this.dispatch('jumpToMessage', async (state: PageStoreState, setState) => {
+      const message = await DeltaBackend.call('messageList.getMessage', messageId)
+      const chatId = message.msg.chatId
+      const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId)
+
+      let {pages, pageOrdering} = await this._loadPageWithFirstMessage(messageIds, messageId)
+      this.pushLayoutEffect({type: 'SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {pageKey: pageOrdering[0]}, id: chatId})
+      
+      
+      setState({
+        pages,
+        pageOrdering,
+        chatId,
+        messageIds,
+        loading: false
+      })
+    })
+
+  }
+  
 
   async loadPageBefore(dispatchesAfter?: DispatchesAfter) {
     return this.dispatch('loadPageBefore', async (state: PageStoreState, setState) => {
