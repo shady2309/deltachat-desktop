@@ -157,3 +157,10 @@ export const selectChat = (chatId: number) => {
   chatStore.dispatch({ type: 'SELECT_CHAT', payload: chatId })
   MessageListStore.selectChat(chatId)
 }
+
+export const jumpToMessage = async (messageId: number) => {
+  const message = await DeltaBackend.call('messageList.getMessage', messageId)
+  const chatId = message.msg.chatId 
+  chatStore.dispatch({ type: 'SELECT_CHAT', payload: chatId })
+  MessageListStore.jumpToMessage(chatId, messageId)
+}

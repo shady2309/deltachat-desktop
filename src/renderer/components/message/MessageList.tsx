@@ -47,6 +47,36 @@ const MessageList = React.memo(function MessageList({
 		} else {
 			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 		}
+	  } else if (action.type === 'SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE') {
+		const { pageKey } = action.payload
+		const scrollTop = messageListRef.current.scrollTop
+		const scrollHeight = messageListRef.current.scrollHeight
+		log.debug(
+			`SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE scrollTop: ${scrollTop} scrollHeight ${scrollHeight}`
+		)
+
+		const pageElement = document.querySelector('#' + pageKey)
+		if(!pageElement) {
+			log.warn(
+				`SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE pageElement is null, returning`
+			)
+			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			return
+		}
+		pageElement.scrollIntoView(true)
+		const firstChild = pageElement.firstElementChild
+		if(!firstChild) {
+			log.warn(
+				`SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE firstChild is null, returning`
+			)
+			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			return
+		}
+		console.debug(firstChild)
+		firstChild.setAttribute('style', 'background-color: yellow')
+		
+		setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+
 	  } else if (action.type === 'SCROLL_BEFORE_FIRST_PAGE') {
 		log.debug(`SCROLL_BEFORE_FIRST_PAGE`)		  
 		const beforeFirstPage = messageListStore.pages[messageListStore.pageOrdering[1]]

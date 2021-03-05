@@ -29,7 +29,7 @@ import { ipcBackend } from '../../ipc'
 import { ScreenContext } from '../../contexts'
 import { KeybindAction, useKeyBindingAction } from '../../keybindings'
 import { getLogger } from '../../../shared/logger'
-import { openViewProfileDialog, selectChat } from '../helpers/ChatMethods'
+import { jumpToMessage, openViewProfileDialog, selectChat } from '../helpers/ChatMethods'
 import { MessageListStore } from '../../stores/messagelist'
 
 const log = getLogger('renderer/chatlist')
@@ -307,6 +307,7 @@ export default function ChatList(props: {
                   >
                     {({ index, key, style }) => {
                       const msrId = messageResultIds[index]
+                      
                       return (
                         <div style={style} key={key}>
                           {messageCache[msrId] ? (
@@ -314,7 +315,7 @@ export default function ChatList(props: {
                               queryStr={queryStr}
                               msr={messageCache[msrId]}
                               onClick={async () => {
-                                MessageListStore.jumpToMessage(msrId)
+                                jumpToMessage(messageCache[msrId].id)
                               }}
                             />
                           ) : (
