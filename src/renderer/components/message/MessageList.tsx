@@ -82,16 +82,24 @@ const MessageList = React.memo(function MessageList({
 		setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 	  } else if (action.type === 'SCROLL_BEFORE_LAST_PAGE') {
 		log.debug(`SCROLL_BEFORE_LAST_PAGE`)		  
-		const beforeLastPage = messageListStore.pages[messageListStore.pageOrdering[messageListStore.pageOrdering.length - 2]]
+		setTimeout(() => {
+			const lastPage = messageListStore.pages[messageListStore.pageOrdering[messageListStore.pageOrdering.length - 1]]
 
-		if(!beforeLastPage) {
-			log.debug(`SCROLL_BEFORE_LAST_PAGE: beforeLastPage is null, returning`)
+			if(!lastPage) {
+				log.debug(`SCROLL_BEFORE_LAST_PAGE: lastPage is null, returning`)
+				setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+				return
+			}
+			
+			log.debug(`SCROLL_BEFORE_LAST_PAGE lastPage ${lastPage.key}`)		  
+
+			const lastPageElement = document.querySelector('#' + lastPage.key)
+			console.debug(lastPageElement)
+			const scrollToY = (messageListRef.current.scrollHeight - messageListRef.current.clientHeight - lastPageElement.clientHeight)
+			log.debug(`SCROLL_BEFORE_LAST_PAGE scrollToY ${scrollToY}`)		  
+			messageListRef.current.scrollTo(0, scrollToY)
 			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
-			return
-		}
-
-		document.querySelector('#' + beforeLastPage.key).scrollIntoView()
-		setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+		})
 	  } else if (action.type === 'DELETE_LAST_PAGE_IF_POSSIBLE') {
 		log.debug(`DELETE_LAST_PAGE_IF_POSSIBLE`)		  
 		const scrollHeight = messageListRef.current.scrollHeight
@@ -99,7 +107,7 @@ const MessageList = React.memo(function MessageList({
 		const lastPageKey = messageListStore.pageOrdering[messageListStore.pageOrdering.length - 1]
 		const lastPageHeight = document.querySelector('#' + lastPageKey).clientHeight
 		
-		if (scrollHeight - lastPageHeight > messageListWrapperHeight) {
+		if (scrollHeight - lastPageHeight > 4 * messageListWrapperHeight) {
 			MessageListStore.removePage(lastPageKey)
 		}
 	  } else if (action.type === 'DELETE_FIRST_PAGE_IF_POSSIBLE') {
@@ -109,7 +117,7 @@ const MessageList = React.memo(function MessageList({
 		const firstPageKey = messageListStore.pageOrdering[0]
 		const firstPageHeight = document.querySelector('#' + firstPageKey).clientHeight
 		
-		if (scrollHeight - firstPageHeight > messageListWrapperHeight) {
+		if (scrollHeight - firstPageHeight > 4 * messageListWrapperHeight) {
 			MessageListStore.removePage(firstPageKey)
 		}
 	  }
@@ -128,7 +136,7 @@ const MessageList = React.memo(function MessageList({
 			{
 				isLayoutEffect: true,
 				action: {type: 'DELETE_LAST_PAGE_IF_POSSIBLE', payload: {}, id: messageListStore.chatId}
-
+				
 			}
 		])
 
@@ -139,12 +147,12 @@ const MessageList = React.memo(function MessageList({
 		MessageListStore.loadPageAfter([
 			{
 				isLayoutEffect: true,
-				action: {type: 'SCROLL_BEFORE_LAST_PAGE', payload: {}, id: messageListStore.chatId}
+				action: {type: 'DELETE_FIRST_PAGE_IF_POSSIBLE', payload: {}, id: messageListStore.chatId}
 			},
 			{
 				isLayoutEffect: true,
-				action: {type: 'DELETE_FIRST_PAGE_IF_POSSIBLE', payload: {}, id: messageListStore.chatId}
-			}
+				action: {type: 'SCROLL_BEFORE_LAST_PAGE', payload: {}, id: messageListStore.chatId}
+			},
 		])
 		
 	}
@@ -214,7 +222,6 @@ export function MessagePage(
 }) { 
 	return (
 		<div className={'message-list-page'} id={page.key} key={page.key}>
-		  {"Is loading: " + page}
 		  {page.messageIds.map((_messageId, index) => {
 			const messageId: MessageId = _messageId as MessageId 
 			const message: Message = page.messages[messageId]

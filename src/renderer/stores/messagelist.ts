@@ -89,7 +89,7 @@ export class PageStore extends Store<PageStoreState> {
         pageOrdering = tmp.pageOrdering
         this.pushLayoutEffect({type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {msgId: firstUnreadMessageId}, id: chatId})
       } else {
-        let firstMessageIndexOnLastPage = Math.max(0, messageIds.length - 1 - PAGE_SIZE)
+        let firstMessageIndexOnLastPage = Math.max(0, messageIds.length - PAGE_SIZE)
         let tmp = await this._loadPageWithFirstMessage(messageIds, messageIds[firstMessageIndexOnLastPage])
         pages = tmp.pages
         pageOrdering = tmp.pageOrdering
