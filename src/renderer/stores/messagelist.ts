@@ -61,7 +61,6 @@ export class PageStore extends Store<PageStoreState> {
   }
   
   dispatchAfter(dispatchAfter: DispatchAfter) {
-    console.log('Hello from dispatchAfter')
     dispatchAfter.isLayoutEffect ? this.pushLayoutEffect(dispatchAfter.action) : this.pushEffect(dispatchAfter.action)
   }
   
@@ -238,7 +237,7 @@ export class PageStore extends Store<PageStoreState> {
       }
     }
     
-    const pageMessageIds = messageIds.slice(startMessageIdIndex, endMessageIdIndex);
+    const pageMessageIds = messageIds.slice(startMessageIdIndex, endMessageIdIndex + 1);
     
     const pageMessages = await DeltaBackend.call('messageList.getMessages2', chatId, startMessageIdIndex, endMessageIdIndex)
     log.debug(`_loadPageWithFirstMessage: pageMessages: ${JSON.stringify(pageMessages)}`)

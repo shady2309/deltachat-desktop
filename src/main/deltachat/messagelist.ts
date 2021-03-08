@@ -201,7 +201,7 @@ export default class DCMessageList extends SplitOut {
     const messageIds = this.getMessageIds(chatId)
 
     let length = indexEnd - indexStart
-    let messages: Message2[] = new Array(length)
+    let messages: Message2[] = new Array(length + 1)
     for (let i = 0; i <= length; i++) {
       const messageIndex = indexStart + i
       const messageId = messageIds[messageIndex]
