@@ -64,7 +64,6 @@ export default class DeltaChatController extends EventEmitter {
     this.onChatlistUpdated = this.onChatlistUpdated.bind(this)
     this.onMsgsChanged = this.onMsgsChanged.bind(this)
     this.onIncomingMsg = this.onIncomingMsg.bind(this)
-    this.onChatModified = this.onChatModified.bind(this)
   }
 
   readonly autocrypt = new DCAutocrypt(this)
@@ -180,20 +179,17 @@ export default class DeltaChatController extends EventEmitter {
   onMsgsChanged(chatId: number, _msgId: number) {
     this.onChatlistUpdated()
     // chatListItem listens to this in the frontend
-    this.chatList.onChatModified(chatId)
   }
 
   onIncomingMsg(chatId: number, msgId: number) {
     maybeMarkSeen(chatId, msgId)
     this.onChatlistUpdated()
     // chatListItem listens to this in the frontend
-    this.chatList.onChatModified(chatId)
   }
 
   onChatModified(chatId: number, _msgId: number) {
     this.onChatlistUpdated()
     // chatListItem listens to this in the frontend
-    this.chatList.onChatModified(chatId)
   }
 
   registerEventHandler(dc: DeltaChat) {

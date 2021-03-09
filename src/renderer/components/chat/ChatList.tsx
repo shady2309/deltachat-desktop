@@ -30,7 +30,6 @@ import { ScreenContext } from '../../contexts'
 import { KeybindAction, useKeyBindingAction } from '../../keybindings'
 import { getLogger } from '../../../shared/logger'
 import { jumpToMessage, openViewProfileDialog, selectChat } from '../helpers/ChatMethods'
-import { MessageListStore } from '../../stores/messagelist'
 
 const log = getLogger('renderer/chatlist')
 
