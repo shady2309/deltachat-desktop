@@ -19,6 +19,7 @@ import { Quote } from '../message/Message'
 import { DeltaBackend, sendMessageParams } from '../../delta-remote'
 import { DraftAttachment } from '../attachment/messageAttachment'
 import { runtime } from '../../runtime'
+import { sendMessage } from '../helpers/ChatMethods'
 
 const log = getLogger('renderer/composer')
 
@@ -79,7 +80,7 @@ const Composer = forwardRef<
   const emojiAndStickerRef = useRef<HTMLDivElement>()
   const pickerButtonRef = useRef()
 
-  const sendMessage = () => {
+  const _sendMessage = () => {
     const textareaRef = messageInputRef.current.textareaRef.current
     textareaRef.disabled = true
     try {
@@ -88,17 +89,15 @@ const Composer = forwardRef<
         log.debug(`Empty message: don't send it...`)
         return
       }
-      chatStoreDispatch({
-        type: 'SEND_MESSAGE',
-        payload: [
-          chatId,
-          {
-            text: replaceColonsSafe(message),
-            filename: draftState.file,
-            quoteMessageId: draftState.quotedMessageId,
-          } as sendMessageParams,
-        ],
-      })
+      sendMessage(
+        chatId,
+        {
+          
+          text: replaceColonsSafe(message),
+          filename: draftState.file,
+          quoteMessageId: draftState.quotedMessageId,
+        }
+      )
 
       /* clear it here to make sure the draft is cleared */
       DeltaBackend.call('messageList.setDraft', chatId, {
@@ -213,7 +212,7 @@ const Composer = forwardRef<
               <ComposerMessageInput
                 ref={messageInputRef}
                 enterKeySends={desktopSettings.enterKeySends}
-                sendMessage={sendMessage}
+                sendMessage={_sendMessage}
                 chatId={chatId}
                 updateDraftText={updateDraftText}
               />
@@ -227,7 +226,7 @@ const Composer = forwardRef<
           >
             <span />
           </div>
-          <div className='send-button-wrapper' onClick={sendMessage}>
+          <div className='send-button-wrapper' onClick={_sendMessage}>
             <button aria-label={tx('menu_send')} />
           </div>
         </div>

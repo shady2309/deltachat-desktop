@@ -35,7 +35,7 @@ export default class DCMessageList extends SplitOut {
       location?: { lat: number; lng: number }
       quoteMessageId?: number
     }
-  ): [number, MessageType | { msg: null }] {
+  ): [number, Message2] {
     const viewType = filename ? C.DC_MSG_FILE : C.DC_MSG_TEXT
     const msg = this._dc.messageNew(viewType)
     if (filename) msg.setFile(filename, undefined)
@@ -52,7 +52,9 @@ export default class DCMessageList extends SplitOut {
     }
 
     const messageId = this._dc.sendMessage(chatId, msg)
-    return [messageId, this.getMessage(messageId)]
+    const _msg = this._dc.getMessage(messageId)
+    const message = _msg ? { type: MessageType2.Message, message: this._messageToJson(_msg) } : null
+    return [messageId, message]
   }
 
   sendSticker(chatId: number, fileStickerPath: string) {

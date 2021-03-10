@@ -1,4 +1,4 @@
-import { DeltaBackend } from '../../delta-remote'
+import { DeltaBackend, sendMessageParams } from '../../delta-remote'
 import chatStore from '../../stores/chat'
 import { ScreenContext, unwrapContext } from '../../contexts'
 import { ChatListItemType, FullChat } from '../../../shared/shared-types'
@@ -164,4 +164,8 @@ export const jumpToMessage = async (messageId: number) => {
   log.debug(`jumpToMessage: chatId: ${chatId} messageId: ${messageId}`)
   MessageListStore.jumpToMessage(chatId, messageId)
   chatStore.dispatch({ type: 'SELECT_CHAT', payload: chatId })
+}
+
+export const sendMessage = async (chatId: number, messageParams: sendMessageParams) => {
+  await MessageListStore.sendMessage(chatId, messageParams)
 }

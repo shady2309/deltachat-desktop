@@ -18,6 +18,7 @@ export interface EffectInterface<S>{
 
 export interface StoreListener<S>{
   onStateChange: (state: S) => void,
+  onForceTriggerEffect: () => void,
   onPushEffect: (a: Action) => void,
   onPushLayoutEffect: (a: Action) => void
 }
@@ -90,17 +91,27 @@ export class Store<S> {
     }
   }
   
-  async pushEffect(action: Action) {
+  async pushEffect(action: Action, forceUpdate?: boolean) {
     this.log.info(`pushEffect: pushed effect ${action.type} ${action}`)
     for(let listener of this.listeners) {
       listener.onPushEffect(action)
     }
+    if (forceUpdate === true) {
+      for(let listener of this.listeners) {
+        listener.onForceTriggerEffect()
+      }
+    }
   }
 
-  async pushLayoutEffect(action: Action) {
+  async pushLayoutEffect(action: Action, forceUpdate?: boolean) {
     this.log.info(`pushLayoutEffect: pushed layout effect ${action.type} ${action}`)
     for(let listener of this.listeners) {
       listener.onPushLayoutEffect(action)
+    }
+    if (forceUpdate === true) {
+      for(let listener of this.listeners) {
+        listener.onForceTriggerEffect()
+      }
     }
   }
 
@@ -108,12 +119,16 @@ export class Store<S> {
     const self = this
     console.log(self)
     const [state, setState] = useState(self.getState())
+    const [forceTriggerEffect, setForceTriggerEffect] = useState(false)
     const effectQueue = useRef<Action[]>([])
     const layoutEffectQueue = useRef<Action[]>([])
+    
+
 
     useEffect(() => {
       return self.subscribe({
         onStateChange: setState,
+        onForceTriggerEffect: () => setForceTriggerEffect(prevState => !prevState),
         onPushEffect: (a) => effectQueue.current.push(a),
         onPushLayoutEffect: (a) => layoutEffectQueue.current.push(a)
       })
@@ -125,14 +140,14 @@ export class Store<S> {
       while (effectQueue.current.length > 0) {
         onAction(effectQueue.current.pop())
       }
-    }, [state])
+    }, [state, forceTriggerEffect])
     
     useLayoutEffect(() => {
       this.log.debug('useLayoutEffect')
       while (layoutEffectQueue.current.length > 0) {
         onLayoutAction(layoutEffectQueue.current.pop())
       }
-    }, [state])
+    }, [state, forceTriggerEffect])
 
     return state
   }

@@ -57,7 +57,6 @@ class DeltaRemote {
   // chatList -----------------------------------------------------------
   call(fnName: 'chatList.selectChat', chatId: number): Promise<FullChat>
   call(fnName: 'chatList.getSelectedChatId'): Promise<number>
-  call(fnName: 'chatList.onChatModified', chatId: number): Promise<void>
   call(
     fnName: 'chatList.getChatListIds',
     listFlags: number,
@@ -218,12 +217,7 @@ class DeltaRemote {
   ): Promise<
     [
       number,
-      (
-        | MessageType
-        | {
-            msg: null
-          }
-      )
+      Message2
     ]
   >
   call(

@@ -1,7 +1,8 @@
 import { MessageState } from "deltachat-node"
 import { getLogger } from "../../shared/logger"
 import { Message2, MessageType } from "../../shared/shared-types"
-import { DeltaBackend } from "../delta-remote"
+import { DeltaBackend, sendMessageParams } from "../delta-remote"
+import { ipcBackend } from "../ipc"
 import { PAGE_SIZE } from "./chat"
 import { Action, Store, StoreDispatchSetState } from "./store2"
 
@@ -187,6 +188,7 @@ export class PageStore extends Store<PageStoreState> {
       }
       
       const lastMessageIndexOnPageAfter = Math.min(firstMessageIdIndexOnPageAfter + PAGE_SIZE, state.messageIds.length - 1)
+      log.debug(`loadPageAfter: loading page with firstMessageIdIndexOnPageAfter: ${firstMessageIdIndexOnPageAfter} lastMessageIndexOnPageAfter: ${lastMessageIndexOnPageAfter}`)
 
       const tmp = await this._loadPageWithFirstMessageIndex(state.chatId, state.messageIds, firstMessageIdIndexOnPageAfter, lastMessageIndexOnPageAfter)
       
@@ -281,11 +283,109 @@ export class PageStore extends Store<PageStoreState> {
     if (!modified) return state
 
     return {
+      ...state,
+      pageOrdering,
+      pages
+    }
+  }
+  
+  sendMessage(chatId: number, messageParams: sendMessageParams) {
+    this.dispatch('sendMessage', async (state, setState) => {
+      const [messageId, message] = await DeltaBackend.call(
+        'messageList.sendMessage',
+        chatId,
+        messageParams
+      )
+      // Workaround for failed messages
+      if (messageId === 0) return
+        
+      const messageIdIndex = state.messageIds.length
+
+      const pageKey = `page-${messageId}-${messageId}`
+      
+      this.pushLayoutEffect({type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: null, id: state.chatId})
+      state = this.state
+      setState({
         ...state,
-        pageOrdering,
-        pages
+        pageOrdering: [...state.pageOrdering, pageKey],
+        messageIds: [...state.messageIds, messageId],
+        pages: {
+          ...state.pages,
+          [pageKey]: {
+            messageIds: [messageId],
+            messages: [message],
+            firstMessageIdIndex: messageIdIndex,
+            lastMessageIdIndex: messageIdIndex,
+            key: pageKey
+          }
+          
+        }
+      })
+    })
+  }
+
+  _findPageWithMessageId(state: PageStoreState, messageId: number): [string, number] {
+    let pageKey: string = null
+    const messageIdIndex = state.messageIds.indexOf(messageId)
+    let indexOnPage: number = -1
+  
+
+    for (const currentPageKey of state.pageOrdering) {
+      const currentPage = state.pages[currentPageKey]
+      if (messageIdIndex >= currentPage.firstMessageIdIndex && messageIdIndex <= currentPage.lastMessageIdIndex) {
+        pageKey = currentPageKey
+        indexOnPage = currentPage.messageIds.indexOf(messageId)
+        break
       }
     }
+
+    return [pageKey, indexOnPage]
+  }
+  
+  onMessageDelivered(chatId: number, messageId: number) {
+    this.dispatch('onMessageDelivered', async (state, setState) => {
+      if (chatId !== state.chatId) {
+        log.debug(`onMessageDelivered: chatId doesn't equal currently selected chat. Returning.`)
+        return
+
+      }
+      const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId)
+
+      if(pageKey === null) {
+        log.debug(`onMessageDelivered: Couldn't find messageId in any shown pages. Returning`)
+        return
+      }
+
+      setState({
+        ...state,
+        pages: {
+          ...state.pages,
+          [pageKey]: {
+            ...state.pages[pageKey],
+            messages: [
+              ...state.pages[pageKey].messages.slice(0, indexOnPage),
+              {
+                ...state.pages[pageKey].messages[indexOnPage],
+                message: {
+                  ...state.pages[pageKey].messages[indexOnPage].message,
+                  msg: {
+                    ...(state.pages[pageKey].messages[indexOnPage].message as MessageType).msg,
+                    'status': 'delivered'
+                  }
+                }
+              },
+              ...state.pages[pageKey].messages.slice(indexOnPage)
+            ]
+          }
+        }
+      })
+    })
+  }
+    
 }
 
 export const MessageListStore = new PageStore(defaultPageStoreState(), 'MessageListPageStore');
+
+ipcBackend.on('DC_EVENT_MSG_DELIVERED', (_evt, [chatId, messageId]) => {
+  MessageListStore.onMessageDelivered(chatId, messageId)
+})
