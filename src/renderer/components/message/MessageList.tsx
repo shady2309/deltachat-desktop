@@ -11,6 +11,30 @@ import { C } from 'deltachat-node/dist/constants'
 
 const log = getLogger('renderer/message/MessageList')
 
+
+function withoutTopPages(messageListRef: React.MutableRefObject<any>, messageListWrapperRef: React.MutableRefObject<any>) {
+	const pageOrdering = MessageListStore.state.pageOrdering
+
+	let withoutPages = []
+	let withoutPagesHeight = messageListRef.current.scrollHeight
+	const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
+
+	for (let i = 0; i < pageOrdering.length - 1; i++) {
+		const pageKey = pageOrdering[i]
+		const pageHeight = document.querySelector('#' + pageKey).clientHeight
+		const updatedWithoutPagesHeight = withoutPagesHeight - pageHeight
+
+		if (updatedWithoutPagesHeight > messageListWrapperHeight * 4) {
+			withoutPages.push(pageKey)
+			withoutPagesHeight = updatedWithoutPagesHeight
+		} else {
+			break
+		}
+	}
+	return withoutPages
+
+}
+
 const MessageList = React.memo(function MessageList({
 	chat,
 	refComposer,
@@ -109,6 +133,30 @@ const MessageList = React.memo(function MessageList({
 			messageListRef.current.scrollTop = scrollToY
 			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 		})
+	  } else if (action.type === 'INCOMING_MESSAGES') {
+		  if (action.id !== MessageListStore.state.chatId) {
+			  log.debug(`INCOMING_MESSSAGES: action id mismatches state.chatId. Returning.`)
+			  return
+		  }
+
+		  const countIncomingMessages = action.payload
+
+		  const scrollTop = messageListRef.current.scrollTop
+		  const scrollHeight = messageListRef.current.scrollHeight
+
+		  const loadMessages = true
+
+		  if (loadMessages) {
+			const withoutPages = withoutTopPages(messageListRef, messageListWrapperRef)
+
+			MessageListStore.loadPageAfter(withoutPages, [
+				{
+					isLayoutEffect: true,
+					action: {type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {}, id: messageListStore.chatId}
+				},
+			])
+			  
+		  }
 	  }
 	}
 

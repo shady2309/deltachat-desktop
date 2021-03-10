@@ -366,10 +366,7 @@ export class PageStore extends Store<PageStoreState> {
           ...state.pages[pageKey],
           messages: [
             ...state.pages[pageKey].messages.slice(0, indexOnPage),
-            {
-              ...state.pages[pageKey].messages[indexOnPage],
-              message: updatedMessage
-            },
+            updatedMessage,
             ...state.pages[pageKey].messages.slice(indexOnPage)
           ]
         }
@@ -436,6 +433,34 @@ export class PageStore extends Store<PageStoreState> {
       }))
     })
   }
+
+  onIncomingMessage(chatId: number) {
+    this.dispatch('onIncomingMessage', async (state, setState) => {
+
+      if (chatId !== state.chatId) {
+        log.debug(
+          `onIncomingMessage: chatId of event (${chatId}) doesn't match id of selected chat (${state.chatId}). Returning.`
+        )
+        return
+      }
+      
+
+      const messageIds = <number[]>(
+        await DeltaBackend.call('messageList.getMessageIds', chatId)
+      )
+      
+      const messageIdsIncoming = messageIds.filter(
+        x => !state.messageIds.includes(x)
+      )
+      
+      this.pushLayoutEffect({type:'INCOMING_MESSAGES', payload: messageIdsIncoming.length, id: chatId})
+      
+      setState({
+        ...state,
+        messageIds
+      })
+    })
+  }
     
 }
 
@@ -447,4 +472,8 @@ ipcBackend.on('DC_EVENT_MSG_DELIVERED', (_evt, [chatId, messageId]) => {
 
 ipcBackend.on('DC_EVENT_MSG_FAILED', (_evt, [chatId, messageId]) => {
   MessageListStore.onMessageFailed(chatId, messageId)
+})
+
+ipcBackend.on('DC_EVENT_INCOMING_MSG', (_, [chatId, _messageId]) => {
+  MessageListStore.onIncomingMessage(chatId)
 })
