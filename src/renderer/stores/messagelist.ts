@@ -323,12 +323,27 @@ export class PageStore extends Store<PageStoreState> {
       })
     })
   }
-
-  _findPageWithMessageId(state: PageStoreState, messageId: number): [string, number] {
-    let pageKey: string = null
-    const messageIdIndex = state.messageIds.indexOf(messageId)
-    let indexOnPage: number = -1
   
+  _indexOfMessageId(state: PageStoreState, messageId: number, iterateFromback?: boolean): number {
+    iterateFromback = iterateFromback === true
+    const messageIdsLength = state.messageIds.length
+    for (let i = iterateFromback ? messageIdsLength - 1 : 0; iterateFromback ? i >= 0 : i < messageIdsLength; iterateFromback ? i-- : i++) {
+      if (state.messageIds[i] === messageId) {
+        return i
+      }
+    }
+    return -1
+
+  }
+
+  _findPageWithMessageId(state: PageStoreState, messageId: number, iterateFromback?: boolean): [string, number] {
+    let pageKey: string = null
+    let indexOnPage: number = -1
+    
+    const messageIdIndex = this._indexOfMessageId(state, messageId, iterateFromback)
+    if (messageIdIndex === -1) {
+      return [pageKey, indexOnPage]
+    }
 
     for (const currentPageKey of state.pageOrdering) {
       const currentPage = state.pages[currentPageKey]
@@ -349,7 +364,7 @@ export class PageStore extends Store<PageStoreState> {
         return
 
       }
-      const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId)
+      const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId, true)
 
       if(pageKey === null) {
         log.debug(`onMessageDelivered: Couldn't find messageId in any shown pages. Returning`)
