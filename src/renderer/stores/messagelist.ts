@@ -242,7 +242,6 @@ export class PageStore extends Store<PageStoreState> {
     const pageMessageIds = messageIds.slice(startMessageIdIndex, endMessageIdIndex + 1);
     
     const pageMessages = await DeltaBackend.call('messageList.getMessages2', chatId, startMessageIdIndex, endMessageIdIndex)
-    log.debug(`_loadPageWithFirstMessage: pageMessages: ${JSON.stringify(pageMessages)}`)
 
     const pageKey = `page-${startMessageIdIndex}-${endMessageIdIndex}`
     

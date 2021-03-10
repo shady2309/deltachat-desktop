@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { MessageId, MessageListPage, MessageListStore } from "../../stores/messagelist";
 import { Action } from "../../stores/store2";
 import { MessageWrapper } from "./MessageWrapper";
@@ -42,6 +42,9 @@ const MessageList = React.memo(function MessageList({
 	chat: ChatStoreState
 	refComposer: todo
   }) {
+	
+
+	const [unreadMessages, setUnreadMessages] = useState(0)
 
 	const messageListRef = useRef(null)
 	const messageListWrapperRef = useRef(null)
@@ -143,19 +146,27 @@ const MessageList = React.memo(function MessageList({
 
 		  const scrollTop = messageListRef.current.scrollTop
 		  const scrollHeight = messageListRef.current.scrollHeight
+		  
+		  const lastPageKey = MessageListStore.state.pageOrdering[MessageListStore.state.pageOrdering.length - 1]
+		  const lastPage = MessageListStore.state.pages[lastPageKey]
+		  const isPreviousMessageLoaded = lastPage.messageIds.indexOf(MessageListStore.state.messageIds[MessageListStore.state.messageIds.length - 2])
 
-		  const loadMessages = true
+		  const isScrolledToBottom = scrollHeight - scrollTop <= 20
 
-		  if (loadMessages) {
+		  const scrollToTopOfMessage = isScrolledToBottom && isPreviousMessageLoaded
+
+		  if (scrollToTopOfMessage) {
 			const withoutPages = withoutTopPages(messageListRef, messageListWrapperRef)
+			const messageId = MessageListStore.state.messageIds[MessageListStore.state.messageIds.length - 1] 
 
 			MessageListStore.loadPageAfter(withoutPages, [
 				{
 					isLayoutEffect: true,
-					action: {type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {}, id: messageListStore.chatId}
+					action: {type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: messageId, id: messageListStore.chatId}
 				},
 			])
-			  
+		  } else {
+			  setUnreadMessages(value => value + countIncomingMessages)
 		  }
 	  }
 	}
@@ -165,7 +176,7 @@ const MessageList = React.memo(function MessageList({
 	
 	const onMessageListTop: IntersectionObserverCallback = (entries) => {
 		const pageOrdering = MessageListStore.state.pageOrdering
-		log.debug(`onMessageListTop ${JSON.stringify(pageOrdering)}`)
+		log.debug(`onMessageListTop`)
 		if(!entries[0].isIntersecting || MessageListStore.currentlyLoadingPage === true || pageOrdering.length === 0) return
 		let withoutPages = []
 		let withoutPagesHeight = messageListRef.current.scrollHeight
@@ -194,7 +205,6 @@ const MessageList = React.memo(function MessageList({
 			}
 		}
 		
-		log.debug(`onMessageListTop: withoutPages: ${JSON.stringify(withoutPages)}`)
 
 		MessageListStore.loadPageBefore(withoutPages, [
 			{
@@ -206,7 +216,6 @@ const MessageList = React.memo(function MessageList({
 	}
 	const onMessageListBottom: IntersectionObserverCallback = (entries)  => {
 		const pageOrdering = MessageListStore.state.pageOrdering
-		log.debug(`onMessageListBottom ${JSON.stringify(pageOrdering)}`)
 		if(!entries[0].isIntersecting || MessageListStore.currentlyLoadingPage === true) return
 		log.debug('onMessageListBottom')
 		let withoutPages = []
@@ -271,7 +280,6 @@ const MessageList = React.memo(function MessageList({
 
 	return <>
 		{iterateMessages((key, messageId, messageIndex, message) => {
-			console.log(key)
 
             if (message.type === MessageType2.DayMarker) {
 				return (
@@ -282,9 +290,8 @@ const MessageList = React.memo(function MessageList({
 					<p key={key}>Not implemented yet</p>
 				)
 			} else if (message.type === MessageType2.Message) {
-				console.log('xxx', key)
 				return (
-				  <ul key={key}>
+				  <ul key={key} id={key}>
 					  <MessageWrapper
 						key={key}
 						message={(message.message as MessageType)}
@@ -295,6 +302,7 @@ const MessageList = React.memo(function MessageList({
 				)
 			} 
 		})}
+		{unreadMessages > 0 && <div className='unread-message-counter'><div className='counter'>{unreadMessages}</div></div>}
 	</>
 })
 

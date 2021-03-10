@@ -26,6 +26,18 @@
     &::-webkit-scrollbar-track {
       background: transparent;
     }
+    
+    .unread-message-counter {
+      position: relative;
+      right: 30vw;
+      bottom: 60px;
+      background-color: white;
+      height: 40px;
+      width: 40px;
+      text-align: center;
+      margin: 0 auto;
+      border-radius: 100%;
+    }
   }
 
   ul {
