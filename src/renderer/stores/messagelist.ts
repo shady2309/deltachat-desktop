@@ -357,6 +357,26 @@ export class PageStore extends Store<PageStoreState> {
     return [pageKey, indexOnPage]
   }
   
+  _updateMessage(state: PageStoreState, pageKey: string, indexOnPage: number, updatedMessage: Message2): PageStoreState {
+    return  {
+      ...state,
+      pages: {
+        ...state.pages,
+        [pageKey]: {
+          ...state.pages[pageKey],
+          messages: [
+            ...state.pages[pageKey].messages.slice(0, indexOnPage),
+            {
+              ...state.pages[pageKey].messages[indexOnPage],
+              message: updatedMessage
+            },
+            ...state.pages[pageKey].messages.slice(indexOnPage)
+          ]
+        }
+      }
+    }
+  }
+  
   onMessageDelivered(chatId: number, messageId: number) {
     this.dispatch('onMessageDelivered', async (state, setState) => {
       if (chatId !== state.chatId) {
@@ -370,30 +390,50 @@ export class PageStore extends Store<PageStoreState> {
         log.debug(`onMessageDelivered: Couldn't find messageId in any shown pages. Returning`)
         return
       }
+      
+      const message = state.pages[pageKey].messages[indexOnPage]
 
-      setState({
-        ...state,
-        pages: {
-          ...state.pages,
-          [pageKey]: {
-            ...state.pages[pageKey],
-            messages: [
-              ...state.pages[pageKey].messages.slice(0, indexOnPage),
-              {
-                ...state.pages[pageKey].messages[indexOnPage],
-                message: {
-                  ...state.pages[pageKey].messages[indexOnPage].message,
-                  msg: {
-                    ...(state.pages[pageKey].messages[indexOnPage].message as MessageType).msg,
-                    'status': 'delivered'
-                  }
-                }
-              },
-              ...state.pages[pageKey].messages.slice(indexOnPage)
-            ]
+      
+      setState(this._updateMessage(state, pageKey, indexOnPage, {
+        ...message,
+        message: {
+          ...message.message,
+          msg: {
+            ...(message.message as MessageType).msg,
+            status: 'delivered'
           }
         }
-      })
+      }))
+    })
+  }
+  
+  onMessageFailed(chatId: number, messageId: number) {
+    this.dispatch('onMessageFailed', async (state, setState) => {
+      if (chatId !== state.chatId) {
+        log.debug(`onMessageFailed: chatId doesn't equal currently selected chat. Returning.`)
+        return
+        
+      }
+      const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId, true)
+
+      if(pageKey === null) {
+        log.debug(`onMessageFailed: Couldn't find messageId in any shown pages. Returning`)
+        return
+      }
+      
+      const message = state.pages[pageKey].messages[indexOnPage]
+      
+      
+      setState(this._updateMessage(state, pageKey, indexOnPage, {
+        ...message,
+        message: {
+          ...message.message,
+          msg: {
+            ...(message.message as MessageType).msg,
+            status: 'error'
+          }
+        }
+      }))
     })
   }
     
@@ -403,4 +443,8 @@ export const MessageListStore = new PageStore(defaultPageStoreState(), 'MessageL
 
 ipcBackend.on('DC_EVENT_MSG_DELIVERED', (_evt, [chatId, messageId]) => {
   MessageListStore.onMessageDelivered(chatId, messageId)
+})
+
+ipcBackend.on('DC_EVENT_MSG_FAILED', (_evt, [chatId, messageId]) => {
+  MessageListStore.onMessageFailed(chatId, messageId)
 })
