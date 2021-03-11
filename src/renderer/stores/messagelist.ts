@@ -1,10 +1,9 @@
-import { MessageState } from "deltachat-node"
 import { getLogger } from "../../shared/logger"
 import { Message2, MessageType } from "../../shared/shared-types"
 import { DeltaBackend, sendMessageParams } from "../delta-remote"
 import { ipcBackend } from "../ipc"
 import { PAGE_SIZE } from "./chat"
-import { Action, Store, StoreDispatchSetState } from "./store2"
+import { Action, Store } from "./store2"
 
 export type MessageId = number
 const log = getLogger('renderer/message/MessageList')
@@ -460,19 +459,56 @@ export class PageStore extends Store<PageStoreState> {
       })
     })
   }
+
+  onMessageRead(chatId: number, messageId: number) {
+    this.dispatch('onMessageRead', async (state, setState) => {
+      if (chatId !== state.chatId) {
+        log.debug(
+          `onMessageRead: chatId of event (${chatId}) doesn't match id of selected chat (${state.chatId}). Returning.`
+        )
+        return
+      }
+      const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId, true)
+
+      if(pageKey === null) {
+        log.debug(`onMessageRead: Couldn't find messageId in any shown pages. Returning`)
+        return
+      }
+      
+      const message = state.pages[pageKey].messages[indexOnPage]
+      
+      
+      setState(this._updateMessage(state, pageKey, indexOnPage, {
+        ...message,
+        message: {
+          ...message.message,
+          msg: {
+            ...(message.message as MessageType).msg,
+            status: 'read'
+          }
+        }
+      }))
+    })
+  }
+  
+
+  init() {
+    ipcBackend.on('DC_EVENT_MSG_DELIVERED', (_evt, [chatId, messageId]) => {
+      this.onMessageDelivered(chatId, messageId)
+    })
+
+    ipcBackend.on('DC_EVENT_MSG_FAILED', (_evt, [chatId, messageId]) => {
+      this.onMessageFailed(chatId, messageId)
+    })
+
+    ipcBackend.on('DC_EVENT_INCOMING_MSG', (_, [chatId, _messageId]) => {
+      this.onIncomingMessage(chatId)
+    })
     
+    ipcBackend.on('DC_EVENT_MSG_READ', (_, [chatId, messageId]) => {
+      this.onMessageRead(chatId, messageId)
+    })
+  }
 }
 
 export const MessageListStore = new PageStore(defaultPageStoreState(), 'MessageListPageStore');
-
-ipcBackend.on('DC_EVENT_MSG_DELIVERED', (_evt, [chatId, messageId]) => {
-  MessageListStore.onMessageDelivered(chatId, messageId)
-})
-
-ipcBackend.on('DC_EVENT_MSG_FAILED', (_evt, [chatId, messageId]) => {
-  MessageListStore.onMessageFailed(chatId, messageId)
-})
-
-ipcBackend.on('DC_EVENT_INCOMING_MSG', (_, [chatId, _messageId]) => {
-  MessageListStore.onIncomingMessage(chatId)
-})

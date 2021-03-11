@@ -35,7 +35,11 @@ export class Store<S> {
   constructor(public state: S, name?: string) {
     if (!name) name = 'Store2'
     this._log = getLogger('renderer/stores/' + name)
+    this.init()
   }
+
+  init() {}
+  destroy() {}
 
   private get log() {
     return this._log
@@ -48,7 +52,8 @@ export class Store<S> {
   async dispatch(name: String, effect: (state: S, setState: StoreDispatchSetState<S>) => Promise<void>): Promise<void> {
     this.log.debug('DISPATCH of type', name)
     const self = this
-    const updatedState = await effect.call(self, self.state, async (updatedState: S) => {
+    
+    const setState = async (updatedState: S) => {
       if (updatedState === this.state) {
         this.log.debug(
           `DISPATCHING of "${name}" didn't change the state. Returning.`,
@@ -64,7 +69,9 @@ export class Store<S> {
       await this.setState(async (state) => {
         return updatedState
       }) 
-    })
+
+    }
+    await effect.call(self, self.state, setState)
   }
   
 
@@ -122,8 +129,6 @@ export class Store<S> {
     const [forceTriggerEffect, setForceTriggerEffect] = useState(false)
     const effectQueue = useRef<Action[]>([])
     const layoutEffectQueue = useRef<Action[]>([])
-    
-
 
     useEffect(() => {
       return self.subscribe({
@@ -152,9 +157,3 @@ export class Store<S> {
     return state
   }
 }
-
-/* TODO
-
-- partial state update (location fetches the old state)?
-
-*/

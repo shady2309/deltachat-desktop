@@ -32,7 +32,36 @@ function withoutTopPages(messageListRef: React.MutableRefObject<any>, messageLis
 		}
 	}
 	return withoutPages
-
+}
+function withoutBottomPages(messageListRef: React.MutableRefObject<any>, messageListWrapperRef: React.MutableRefObject<any>) {
+	const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
+	let withoutPagesHeight = messageListRef.current.scrollHeight
+		
+	log.debug(`onMessageListTop messageListWrapperHeight: ${messageListWrapperHeight} withoutPagesHeight: ${withoutPagesHeight}`)
+	
+	const pageOrdering = MessageListStore.state.pageOrdering
+	let withoutPages = []
+	for (let i = pageOrdering.length - 1; i > 0; i--) {
+		const pageKey = pageOrdering[i]
+		log.debug(`onMessageListTop: pageKey: ${pageKey} i: ${i}`)
+		const pageElement = document.querySelector('#' + pageKey)
+		if (!pageElement) {
+			log.debug(`onMessageListTop: could not find dom element of pageKey: ${pageKey}. Skipping.`)
+			continue
+		}
+		const pageHeight = pageElement.clientHeight
+		const updatedWithoutPagesHeight = withoutPagesHeight - pageHeight
+		log.debug(`onMessageListTop messageListWrapperHeight: ${messageListWrapperHeight} updatedWithoutPagesHeight: ${updatedWithoutPagesHeight}`)
+		if (updatedWithoutPagesHeight > messageListWrapperHeight * 4) {
+			withoutPages.push(pageKey)
+			withoutPagesHeight = updatedWithoutPagesHeight
+		} else {
+			log.debug(`onMessageListTop: Found all removable pages. Breaking.`)
+			break
+		}
+	}
+	
+	return withoutPages
 }
 
 const MessageList = React.memo(function MessageList({
@@ -178,33 +207,7 @@ const MessageList = React.memo(function MessageList({
 		const pageOrdering = MessageListStore.state.pageOrdering
 		log.debug(`onMessageListTop`)
 		if(!entries[0].isIntersecting || MessageListStore.currentlyLoadingPage === true || pageOrdering.length === 0) return
-		let withoutPages = []
-		let withoutPagesHeight = messageListRef.current.scrollHeight
-		const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
-		
-		log.debug(`onMessageListTop messageListWrapperHeight: ${messageListWrapperHeight} withoutPagesHeight: ${withoutPagesHeight}`)
-
-		for (let i = pageOrdering.length - 1; i > 0; i--) {
-			const pageKey = pageOrdering[i]
-			log.debug(`onMessageListTop: pageKey: ${pageKey} i: ${i}`)
-			const pageElement = document.querySelector('#' + pageKey)
-			if (!pageElement) {
-				log.debug(`onMessageListTop: could not find dom element of pageKey: ${pageKey}. Skipping.`)
-				continue
-			}
-			const pageHeight = pageElement.clientHeight
-			const updatedWithoutPagesHeight = withoutPagesHeight - pageHeight
-			log.debug(`onMessageListTop messageListWrapperHeight: ${messageListWrapperHeight} updatedWithoutPagesHeight: ${updatedWithoutPagesHeight}`)
-
-			if (updatedWithoutPagesHeight > messageListWrapperHeight * 4) {
-				withoutPages.push(pageKey)
-				withoutPagesHeight = updatedWithoutPagesHeight
-			} else {
-				log.debug(`onMessageListTop: Found all removable pages. Breaking.`)
-				break
-			}
-		}
-		
+		let withoutPages = withoutBottomPages(messageListRef, messageListWrapperRef)
 
 		MessageListStore.loadPageBefore(withoutPages, [
 			{
