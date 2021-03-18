@@ -37,26 +37,26 @@ function withoutBottomPages(messageListRef: React.MutableRefObject<any>, message
 	const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
 	let withoutPagesHeight = messageListRef.current.scrollHeight
 		
-	log.debug(`onMessageListTop messageListWrapperHeight: ${messageListWrapperHeight} withoutPagesHeight: ${withoutPagesHeight}`)
+	log.debug(`withoutBottomPages messageListWrapperHeight: ${messageListWrapperHeight} withoutPagesHeight: ${withoutPagesHeight}`)
 	
 	const pageOrdering = MessageListStore.state.pageOrdering
 	let withoutPages = []
 	for (let i = pageOrdering.length - 1; i > 0; i--) {
 		const pageKey = pageOrdering[i]
-		log.debug(`onMessageListTop: pageKey: ${pageKey} i: ${i}`)
+		log.debug(`withoutBottomPages: pageKey: ${pageKey} i: ${i}`)
 		const pageElement = document.querySelector('#' + pageKey)
 		if (!pageElement) {
-			log.debug(`onMessageListTop: could not find dom element of pageKey: ${pageKey}. Skipping.`)
+			log.debug(`withoutBottomPages: could not find dom element of pageKey: ${pageKey}. Skipping.`)
 			continue
 		}
 		const pageHeight = pageElement.clientHeight
 		const updatedWithoutPagesHeight = withoutPagesHeight - pageHeight
-		log.debug(`onMessageListTop messageListWrapperHeight: ${messageListWrapperHeight} updatedWithoutPagesHeight: ${updatedWithoutPagesHeight}`)
+		log.debug(`withoutBottomPages messageListWrapperHeight: ${messageListWrapperHeight} updatedWithoutPagesHeight: ${updatedWithoutPagesHeight}`)
 		if (updatedWithoutPagesHeight > messageListWrapperHeight * 4) {
 			withoutPages.push(pageKey)
 			withoutPagesHeight = updatedWithoutPagesHeight
 		} else {
-			log.debug(`onMessageListTop: Found all removable pages. Breaking.`)
+			log.debug(`withoutBottomPages: Found all removable pages. Breaking.`)
 			break
 		}
 	}
@@ -79,9 +79,30 @@ const MessageList = React.memo(function MessageList({
 	const messageListWrapperRef = useRef(null)
 	const messageListTopRef = useRef(null)
 	const messageListBottomRef = useRef(null)
-	const onMessageListStoreEffect = () => {
+	const onMessageListStoreEffect = (action: Action) => {
+	  if (action.type === 'SCROLL_BEFORE_LAST_PAGE') {
+		log.debug(`SCROLL_BEFORE_LAST_PAGE`)		  
+		setTimeout(() => {
+			const lastPage = messageListStore.pages[messageListStore.pageOrdering[messageListStore.pageOrdering.length - 1]]
 
+			if(!lastPage) {
+				log.debug(`SCROLL_BEFORE_LAST_PAGE: lastPage is null, returning`)
+				setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+				return
+			}
+			
+			log.debug(`SCROLL_BEFORE_LAST_PAGE lastPage ${lastPage.key}`)		  
+
+			const lastPageElement = document.querySelector('#' + lastPage.key)
+			console.debug(lastPageElement)
+			const scrollToY = (messageListRef.current.scrollHeight - messageListRef.current.clientHeight - lastPageElement.clientHeight)
+			log.debug(`SCROLL_BEFORE_LAST_PAGE scrollToY ${scrollToY}`)		  
+			messageListRef.current.scrollTop = scrollToY
+			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+		})
+	  }
 	}
+
 	const onMessageListStoreLayoutEffect = (action: Action) => {
 	  if (action.type === 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE') {
 		const scrollTop = messageListRef.current.scrollTop
@@ -145,29 +166,9 @@ const MessageList = React.memo(function MessageList({
 
 		document.querySelector('#' + beforeFirstPage.key).scrollIntoView()
 		setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
-	  } else if (action.type === 'SCROLL_BEFORE_LAST_PAGE') {
-		log.debug(`SCROLL_BEFORE_LAST_PAGE`)		  
-		setTimeout(() => {
-			const lastPage = messageListStore.pages[messageListStore.pageOrdering[messageListStore.pageOrdering.length - 1]]
-
-			if(!lastPage) {
-				log.debug(`SCROLL_BEFORE_LAST_PAGE: lastPage is null, returning`)
-				setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
-				return
-			}
-			
-			log.debug(`SCROLL_BEFORE_LAST_PAGE lastPage ${lastPage.key}`)		  
-
-			const lastPageElement = document.querySelector('#' + lastPage.key)
-			console.debug(lastPageElement)
-			const scrollToY = (messageListRef.current.scrollHeight - messageListRef.current.clientHeight - lastPageElement.clientHeight)
-			log.debug(`SCROLL_BEFORE_LAST_PAGE scrollToY ${scrollToY}`)		  
-			messageListRef.current.scrollTop = scrollToY
-			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
-		})
 	  } else if (action.type === 'INCOMING_MESSAGES') {
 		  if (action.id !== MessageListStore.state.chatId) {
-			  log.debug(`INCOMING_MESSSAGES: action id mismatches state.chatId. Returning.`)
+			  log.debug(`INCOMING_MESSAGES: action id mismatches state.chatId. Returning.`)
 			  return
 		  }
 
@@ -175,14 +176,19 @@ const MessageList = React.memo(function MessageList({
 
 		  const scrollTop = messageListRef.current.scrollTop
 		  const scrollHeight = messageListRef.current.scrollHeight
+		  const wrapperHeight = messageListWrapperRef.current.clientHeight
 		  
 		  const lastPageKey = MessageListStore.state.pageOrdering[MessageListStore.state.pageOrdering.length - 1]
 		  const lastPage = MessageListStore.state.pages[lastPageKey]
-		  const isPreviousMessageLoaded = lastPage.messageIds.indexOf(MessageListStore.state.messageIds[MessageListStore.state.messageIds.length - 2])
+		  
+		  const isPreviousMessageLoaded = lastPage.messageIds[lastPage.messageIds.length - 1] === MessageListStore.state.messageIds[MessageListStore.state.messageIds.length - 2]
+		  
+		  log.debug(`INCOMING_MESSAGES: scrollHeight: ${scrollHeight} scrollTop: ${scrollTop} wrapperHeight: ${wrapperHeight}`)
 
-		  const isScrolledToBottom = scrollHeight - scrollTop <= 20
+		  const isScrolledToBottom = scrollTop >= scrollHeight - wrapperHeight 
 
 		  const scrollToTopOfMessage = isScrolledToBottom && isPreviousMessageLoaded
+		  log.debug(`INCOMING_MESSAGES: scrollToTopOfMessage ${scrollToTopOfMessage} isScrolledToBottom: ${isScrolledToBottom} isPreviousMessageLoaded: ${isPreviousMessageLoaded}`)
 
 		  if (scrollToTopOfMessage) {
 			const withoutPages = withoutTopPages(messageListRef, messageListWrapperRef)
@@ -239,7 +245,7 @@ const MessageList = React.memo(function MessageList({
 		}
 		MessageListStore.loadPageAfter(withoutPages, [
 			{
-				isLayoutEffect: true,
+				isLayoutEffect: false,
 				action: {type: 'SCROLL_BEFORE_LAST_PAGE', payload: {}, id: messageListStore.chatId}
 			},
 		])
@@ -283,7 +289,6 @@ const MessageList = React.memo(function MessageList({
 
 	return <>
 		{iterateMessages((key, messageId, messageIndex, message) => {
-
             if (message.type === MessageType2.DayMarker) {
 				return (
 				  <DayMarkerInfoMessage key={key} timestamp={(message.message as MessageDayMarker).timestamp} />
