@@ -99,6 +99,28 @@ export default class DCMessageList extends SplitOut {
 
     return firstUnreadMessageId
   }
+  
+  getUnreadMessageIds(chatId: number) {
+    const countFreshMessages = this._dc.getFreshMessageCount(chatId)
+    const messageIds = this._dc.getChatMessages(chatId, 0, 0)
+
+    let foundFreshMessages = 0
+    let unreadMessageIds: number[] = []
+    for(let i = messageIds.length -1; i >= 0; i--) {
+      const messageId = messageIds[i]
+
+      if (!this._dc.getMessage(messageId).getState().isFresh()) continue
+        
+      foundFreshMessages++
+      unreadMessageIds.unshift(messageId)
+
+      if (foundFreshMessages >= countFreshMessages) {
+        break
+      }
+    } 
+
+    return unreadMessageIds
+  }
 
   async getDraft(chatId: number): Promise<MessageType | null> {
     const draft = this._dc.getDraft(chatId)
@@ -191,16 +213,16 @@ export default class DCMessageList extends SplitOut {
     this._controller.chatList.selectChat(chatId)
   }
 
-  getMessageIds(chatId: number) {
+  getMessageIds(chatId: number, marker1Before?: number) {
     const messageIds = this._dc.getChatMessages(
       chatId,
       C.DC_GCM_ADDDAYMARKER,
-      0
+      marker1Before
     )
     return messageIds
   }
-  async getMessages2(chatId: number, indexStart: number, indexEnd: number): Promise<Message2[]> {
-    const messageIds = this.getMessageIds(chatId)
+  async getMessages2(chatId: number, indexStart: number, indexEnd: number, marker1Before?: number): Promise<Message2[]> {
+    const messageIds = this.getMessageIds(chatId, marker1Before)
 
     let length = indexEnd - indexStart
     let messages: Message2[] = new Array(length + 1)

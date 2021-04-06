@@ -9,6 +9,45 @@
   background-size: cover;
   background-color: var(--chatViewBg);
   overflow: hidden;
+
+  .unread-message-counter {
+    position: relative;
+    left: calc(100% - 40px - 10px);
+    top: -(30px + 40px + 20px);
+    height: 30px + 40px;
+    width: 40px;
+    .counter {
+      position: relative;
+      z-index: 10;
+      
+      width: 30px;
+      height: 30px;
+
+      margin: 0 auto; 
+      border-radius: 100%;
+      
+      background-color: var(--colorPrimary);
+      color: white;
+      line-height: 30px;
+      text-align: center;
+    }
+
+    .jump-to-first-unread-message-button {
+      position: relative;
+      z-index: 8;
+      
+      height: 40px;
+      margin: 0 auto;
+      margin-top: -10px;
+      width: 40px;
+      
+      line-height: 40px;
+      background-color: white;
+      border-radius: 100%;
+      
+      cursor: pointer;
+    }
+  }
 }
 
 .message-list-and-composer__message-list {
@@ -27,17 +66,6 @@
       background: transparent;
     }
     
-    .unread-message-counter {
-      position: relative;
-      right: 30vw;
-      bottom: 60px;
-      background-color: white;
-      height: 40px;
-      width: 40px;
-      text-align: center;
-      margin: 0 auto;
-      border-radius: 100%;
-    }
   }
 
   ul {

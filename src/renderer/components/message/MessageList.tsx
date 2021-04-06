@@ -64,6 +64,20 @@ function withoutBottomPages(messageListRef: React.MutableRefObject<any>, message
 	return withoutPages
 }
 
+const getPageElement = (pageKey: string) => document.querySelector('#' + pageKey)
+const scrollBeforePage = (messageListRef: React.MutableRefObject<any>, pageKey: string, after?: boolean) => {
+	const pageElement = getPageElement(pageKey)
+
+	const pageOffsetTop = (pageElement as unknown as any).offsetTop
+
+	if (after === true) {
+		const pageHeight = pageElement.clientHeight
+		messageListRef.current.scrollTop = pageOffsetTop + pageHeight - messageListRef.current.clientHeight
+	} else {
+		messageListRef.current.scrollTop = pageOffsetTop - messageListRef.current.clientHeight
+	}	 
+}
+
 const MessageList = React.memo(function MessageList({
 	chat,
 	refComposer,
@@ -93,11 +107,7 @@ const MessageList = React.memo(function MessageList({
 			
 			log.debug(`SCROLL_BEFORE_LAST_PAGE lastPage ${lastPage.key}`)		  
 
-			const lastPageElement = document.querySelector('#' + lastPage.key)
-			console.debug(lastPageElement)
-			const scrollToY = (messageListRef.current.scrollHeight - messageListRef.current.clientHeight - lastPageElement.clientHeight)
-			log.debug(`SCROLL_BEFORE_LAST_PAGE scrollToY ${scrollToY}`)		  
-			messageListRef.current.scrollTop = scrollToY
+			scrollBeforePage(messageListRef, lastPage.key)
 			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 		})
 	  }
@@ -151,7 +161,6 @@ const MessageList = React.memo(function MessageList({
 		}
 		console.debug(firstChild)
 		firstChild.setAttribute('style', 'background-color: yellow')
-		
 		setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 
 	  } else if (action.type === 'SCROLL_BEFORE_FIRST_PAGE') {
@@ -163,7 +172,7 @@ const MessageList = React.memo(function MessageList({
 			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 			return
 		}
-
+		
 		document.querySelector('#' + beforeFirstPage.key).scrollIntoView()
 		setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 	  } else if (action.type === 'INCOMING_MESSAGES') {
@@ -310,7 +319,10 @@ const MessageList = React.memo(function MessageList({
 				)
 			} 
 		})}
-		{unreadMessages > 0 && <div className='unread-message-counter'><div className='counter'>{unreadMessages}</div></div>}
+		{unreadMessages > 0 && <div className='unread-message-counter'>
+			<div className='counter'>{unreadMessages}</div>
+			<div className='jump-to-first-unread-message-button'/>
+		</div>}
 	</>
 })
 
