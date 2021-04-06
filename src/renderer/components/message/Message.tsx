@@ -494,3 +494,15 @@ export function DayMarkerInfoMessage(props: { timestamp: number }) {
     </div>
   )
 }
+
+export function UnreadMessagesMarker(props: { count: number }) {
+  const { count } = props
+  const tx = useTranslationFunction()
+  return (
+    <div className='info-message'>
+      <p style={{ textTransform: 'capitalize' }}>
+        {tx('chat_n_new_messages', String(count), { quantity: count ===1 ? 'one' : 'other'})}
+      </p>
+    </div>
+  )
+}

@@ -102,6 +102,7 @@ export default class DCMessageList extends SplitOut {
   
   getUnreadMessageIds(chatId: number) {
     const countFreshMessages = this._dc.getFreshMessageCount(chatId)
+    log.debug(`getUnreadMessageIds: countFreshMessages: ${countFreshMessages}`)
     const messageIds = this._dc.getChatMessages(chatId, 0, 0)
 
     let foundFreshMessages = 0
@@ -109,7 +110,9 @@ export default class DCMessageList extends SplitOut {
     for(let i = messageIds.length -1; i >= 0; i--) {
       const messageId = messageIds[i]
 
-      if (!this._dc.getMessage(messageId).getState().isFresh()) continue
+      const isFresh = this._dc.getMessage(messageId).getState().isFresh()
+    log.debug(`getUnreadMessageIds: messageId: ${messageId} isFresh: ${isFresh}`)
+      if (!isFresh) continue
         
       foundFreshMessages++
       unreadMessageIds.unshift(messageId)
@@ -214,6 +217,7 @@ export default class DCMessageList extends SplitOut {
   }
 
   getMessageIds(chatId: number, marker1Before?: number) {
+    log.debug(`getMessageIds: chatId: ${chatId} marker1Before: ${marker1Before}`)
     const messageIds = this._dc.getChatMessages(
       chatId,
       C.DC_GCM_ADDDAYMARKER,
@@ -221,8 +225,9 @@ export default class DCMessageList extends SplitOut {
     )
     return messageIds
   }
-  async getMessages2(chatId: number, indexStart: number, indexEnd: number, marker1Before?: number): Promise<Message2[]> {
-    const messageIds = this.getMessageIds(chatId, marker1Before)
+  async getMessages(chatId: number, indexStart: number, indexEnd: number, marker1Before?: number): Promise<Message2[]> {
+    log.debug(`getMessages: chatId: ${chatId} marker1Before: ${marker1Before}`)
+    const messageIds = this.getMessageIds(chatId, marker1Before || 0)
 
     let length = indexEnd - indexStart
     let messages: Message2[] = new Array(length + 1)
@@ -248,7 +253,7 @@ export default class DCMessageList extends SplitOut {
         }
 
       } else if (messageId <= C.DC_MSG_ID_LAST_SPECIAL) {
-        log.debug(`getMessages2: not sure what do with this messageId: ${messageId}, skipping`)
+        log.debug(`getMessages: not sure what do with this messageId: ${messageId}, skipping`)
         
       } else {
         const msg = this._dc.getMessage(messageId)
@@ -266,35 +271,6 @@ export default class DCMessageList extends SplitOut {
     }
     return messages
 
-  }
-  
-  getMessages(messageIds: number[]) {
-    const messages: {
-      [key: number]: ReturnType<typeof DCMessageList.prototype.messageIdToJson>
-    } = {}
-    const markMessagesRead: number[] = []
-    messageIds.forEach(messageId => {
-      if (messageId <= C.DC_MSG_ID_LAST_SPECIAL) return
-      const message = this.messageIdToJson(messageId)
-      if (
-        message.msg.direction === 'incoming' &&
-        message.msg.state !== C.DC_STATE_IN_SEEN
-      ) {
-        markMessagesRead.push(messageId)
-      }
-      messages[messageId] = message
-    })
-
-    if (markMessagesRead.length > 0) {
-      const chatId = messages[markMessagesRead[0]].msg.chatId
-
-      log.debug(
-        `markMessagesRead ${markMessagesRead.length} messages for chat ${chatId}`
-      )
-      // TODO: move mark seen logic to frontend
-      setTimeout(() => this._dc.markSeenMessages(markMessagesRead))
-    }
-    return messages
   }
 
   markSeenMessages(messageIds: number[]) {

@@ -4,10 +4,11 @@ import { Action } from "../../stores/store2";
 import { MessageWrapper } from "./MessageWrapper";
 import type { Message2, MessageDayMarker, MessageType } from "../../../shared/shared-types";
 import { getLogger } from "../../../shared/logger";
-import { DayMarkerInfoMessage } from "./Message";
+import { DayMarkerInfoMessage, UnreadMessagesMarker } from "./Message";
 import { MessageType2 } from '../../../shared/shared';
 import { ChatStoreState } from '../../stores/chat';
 import { C } from 'deltachat-node/dist/constants'
+import { jumpToMessage } from '../helpers/ChatMethods';
 
 const log = getLogger('renderer/message/MessageList')
 
@@ -85,10 +86,6 @@ const MessageList = React.memo(function MessageList({
 	chat: ChatStoreState
 	refComposer: todo
   }) {
-	
-
-	const [unreadMessages, setUnreadMessages] = useState(0)
-
 	const messageListRef = useRef(null)
 	const messageListWrapperRef = useRef(null)
 	const messageListTopRef = useRef(null)
@@ -172,7 +169,7 @@ const MessageList = React.memo(function MessageList({
 			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 			return
 		}
-		
+
 		document.querySelector('#' + beforeFirstPage.key).scrollIntoView()
 		setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 	  } else if (action.type === 'INCOMING_MESSAGES') {
@@ -209,10 +206,8 @@ const MessageList = React.memo(function MessageList({
 					action: {type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: messageId, id: messageListStore.chatId}
 				},
 			])
-		  } else {
-			  setUnreadMessages(value => value + countIncomingMessages)
 		  }
-	  }
+		}
 	}
 
 	const messageListStore = MessageListStore.useStore(onMessageListStoreEffect, onMessageListStoreLayoutEffect)
@@ -304,7 +299,7 @@ const MessageList = React.memo(function MessageList({
 				)
 			} else if (message.type === MessageType2.MarkerOne) {
 				return (
-					<p key={key}>Not implemented yet</p>
+					<UnreadMessagesMarker key={key} count={messageListStore.unreadMessageIds.length} />
 				)
 			} else if (message.type === MessageType2.Message) {
 				return (
@@ -319,9 +314,9 @@ const MessageList = React.memo(function MessageList({
 				)
 			} 
 		})}
-		{unreadMessages > 0 && <div className='unread-message-counter'>
-			<div className='counter'>{unreadMessages}</div>
-			<div className='jump-to-first-unread-message-button'/>
+		{messageListStore.unreadMessageIds.length > 0 && <div className='unread-message-counter'>
+			<div className='counter'>{messageListStore.unreadMessageIds.length}</div>
+			<div className='jump-to-first-unread-message-button' onClick={() => {jumpToMessage(messageListStore.unreadMessageIds[0])}} />
 		</div>}
 	</>
 })

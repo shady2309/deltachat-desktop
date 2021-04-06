@@ -82,12 +82,18 @@ export class PageStore extends Store<PageStoreState> {
       let [pages, pageOrdering]: [PageStoreState['pages'], PageStoreState['pageOrdering']] = [{}, []]
 
       if (firstUnreadMessageId !== -1) {
-        const firstUnreadMessageIdIndex = messageIds.indexOf(firstUnreadMessageId)
+        const firstUnreadMessageIdIndex = Math.max(0, messageIds.indexOf(firstUnreadMessageId) - 1)
         const endMessageIdIndex = Math.min(firstUnreadMessageId + PAGE_SIZE, messageIds.length - 1)
-        let tmp = await this._loadPageWithFirstMessageIndex(chatId, messageIds, firstUnreadMessageId, endMessageIdIndex, unreadMessageIds[0] || 0)
-        pages = tmp.pages
-        pageOrdering = tmp.pageOrdering
-        this.pushLayoutEffect({type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {msgId: firstUnreadMessageId}, id: chatId})
+        let {pages: pageUnread, pageOrdering: pageUnreadOrdering} = await this._loadPageWithFirstMessageIndex(chatId, messageIds, firstUnreadMessageIdIndex, endMessageIdIndex, firstUnreadMessageId|| 0)
+        
+        
+        let pageBeforeIndexStart = Math.max(firstUnreadMessageIdIndex - PAGE_SIZE, 0)
+        let pageBeforeIndexEnd = Math.max(firstUnreadMessageIdIndex - 1, 0)
+        let {pages: pagesBefore, pageOrdering: pageOrderingBefore} = await this._loadPageWithFirstMessageIndex(chatId, messageIds, pageBeforeIndexStart, pageBeforeIndexEnd, unreadMessageIds[0] || 0)
+        
+        pages = {...pagesBefore, ...pageUnread}
+        pageOrdering = [...pageOrderingBefore, ...pageUnreadOrdering]
+        this.pushLayoutEffect({type: 'SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {pageKey: pageOrdering[0]}, id: chatId}) 
       } else {
         let firstMessageIndexOnLastPage = Math.max(0, messageIds.length - PAGE_SIZE)
         const endMessageIdIndex = Math.min(firstMessageIndexOnLastPage + PAGE_SIZE, messageIds.length - 1)
@@ -247,7 +253,7 @@ export class PageStore extends Store<PageStoreState> {
     
     const pageMessageIds = messageIds.slice(startMessageIdIndex, endMessageIdIndex + 1);
     
-    const pageMessages = await DeltaBackend.call('messageList.getMessages2', chatId, startMessageIdIndex, endMessageIdIndex, marker1Before)
+    const pageMessages = await DeltaBackend.call('messageList.getMessages', chatId, startMessageIdIndex, endMessageIdIndex, marker1Before)
 
     const pageKey = `page-${startMessageIdIndex}-${endMessageIdIndex}`
     
