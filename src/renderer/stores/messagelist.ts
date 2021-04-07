@@ -1,6 +1,6 @@
 import { C } from "deltachat-node/dist/constants"
 import { getLogger } from "../../shared/logger"
-import { Message2, MessageType } from "../../shared/shared-types"
+import { Message2, MessageState, MessageType } from "../../shared/shared-types"
 import { DeltaBackend, sendMessageParams } from "../delta-remote"
 import { ipcBackend } from "../ipc"
 import { PAGE_SIZE } from "./chat"
@@ -26,6 +26,8 @@ export interface PageStoreState {
 	pageOrdering: string[]
 	chatId: number
 	messageIds: MessageId[]
+  marker1MessageId: number,
+  marker1MessageCount: number
   unreadMessageIds: number[]
 	loading: boolean
 }
@@ -38,6 +40,8 @@ export function defaultPageStoreState(): PageStoreState {
 		messageIds: [],
     unreadMessageIds: [],
 		loading: false,
+    marker1MessageId: 0,
+    marker1MessageCount: 0
 	}
 }
 
@@ -77,8 +81,10 @@ export class PageStore extends Store<PageStoreState> {
       
       const unreadMessageIds = await DeltaBackend.call('messageList.getUnreadMessageIds', chatId)
       const firstUnreadMessageId = unreadMessageIds.length > 0 ? unreadMessageIds[0] : -1
+      const marker1MessageId = firstUnreadMessageId || 0
+      const marker1MessageCount = unreadMessageIds.length
 
-      const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId, firstUnreadMessageId === -1 ? 0 : firstUnreadMessageId)
+      const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId, marker1MessageId)
 
       let [pages, pageOrdering]: [PageStoreState['pages'], PageStoreState['pageOrdering']] = [{}, []]
 
@@ -86,7 +92,7 @@ export class PageStore extends Store<PageStoreState> {
         const firstUnreadMessageIdIndex = Math.max(0, messageIds.indexOf(firstUnreadMessageId))
         const [firstMessageIdIndex, lastMessageIdIndex] = this._calculateIndexesForPageWithMessageIdInMiddle(messageIds, firstUnreadMessageIdIndex)
         
-        let tmp = await this._loadPageWithFirstMessageIndex(chatId, messageIds, firstMessageIdIndex, lastMessageIdIndex, firstUnreadMessageId|| 0)
+        let tmp = await this._loadPageWithFirstMessageIndex(chatId, messageIds, firstMessageIdIndex, lastMessageIdIndex, marker1MessageId)
         
         pages = tmp.pages
         pageOrdering = tmp.pageOrdering
@@ -99,7 +105,7 @@ export class PageStore extends Store<PageStoreState> {
       } else {
         let firstMessageIndexOnLastPage = Math.max(0, messageIds.length - PAGE_SIZE)
         const endMessageIdIndex = Math.min(firstMessageIndexOnLastPage + PAGE_SIZE, messageIds.length - 1)
-        let tmp = await this._loadPageWithFirstMessageIndex(chatId, messageIds, firstMessageIndexOnLastPage, endMessageIdIndex, unreadMessageIds[0] || 0)
+        let tmp = await this._loadPageWithFirstMessageIndex(chatId, messageIds, firstMessageIndexOnLastPage, endMessageIdIndex, 0)
         pages = tmp.pages
         pageOrdering = tmp.pageOrdering
         this.pushLayoutEffect({type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {}, id: chatId})
@@ -112,6 +118,8 @@ export class PageStore extends Store<PageStoreState> {
         chatId,
         messageIds,
         unreadMessageIds,
+        marker1MessageId,
+        marker1MessageCount,
         loading: false
       })
     })
@@ -131,7 +139,9 @@ export class PageStore extends Store<PageStoreState> {
     return this.dispatch('jumpToMessage', async (state: PageStoreState, setState) => {
       log.debug(`jumpToMessage: chatId: ${chatId} messageId: ${messageId}`)
       const unreadMessageIds = await DeltaBackend.call('messageList.getUnreadMessageIds', chatId)
-      const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId, unreadMessageIds[0] || 0)
+      const marker1MessageId = unreadMessageIds[0] || 0
+      const marker1MessageCount = unreadMessageIds.length
+      const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId, marker1MessageId)
       
       const jumpToMessageIndex = messageIds.indexOf(messageId)
 
@@ -148,6 +158,8 @@ export class PageStore extends Store<PageStoreState> {
         chatId,
         messageIds,
         unreadMessageIds,
+        marker1MessageId,
+        marker1MessageCount,
         loading: false
       })
     })
@@ -191,6 +203,14 @@ export class PageStore extends Store<PageStoreState> {
       })
     })
   }
+
+  canLoadPageBefore(pageKey: string) {
+    return this.state.pages[pageKey].firstMessageIdIndex > 0
+  }
+
+  canLoadPageAfter(pageKey: string) {
+    return this.state.pages[pageKey].lastMessageIdIndex < (this.state.messageIds.length - 1)
+  }
   
   async loadPageAfter(withoutPages: string[], dispatchesAfter?: DispatchesAfter) {
     return this.dispatch('loadPageAfter', async (state: PageStoreState, setState) => {
@@ -227,6 +247,10 @@ export class PageStore extends Store<PageStoreState> {
         }
       })
     })
+  }
+  
+  isCurrentlyLoadingPage() {
+    return this.currentlyLoadingPage
   }
   
   doneCurrentlyLoadingPage() {
@@ -419,7 +443,7 @@ export class PageStore extends Store<PageStoreState> {
           ...message.message,
           msg: {
             ...(message.message as MessageType).msg,
-            status: 'delivered'
+            state: C.DC_STATE_OUT_DELIVERED as MessageState
           }
         }
       }))
@@ -449,7 +473,7 @@ export class PageStore extends Store<PageStoreState> {
           ...message.message,
           msg: {
             ...(message.message as MessageType).msg,
-            status: 'error'
+            state: C.DC_STATE_OUT_FAILED as MessageState
           }
         }
       }))
@@ -508,10 +532,55 @@ export class PageStore extends Store<PageStoreState> {
           ...message.message,
           msg: {
             ...(message.message as MessageType).msg,
-            status: 'read'
+            state: C.DC_STATE_OUT_MDN_RCVD as MessageState
           }
         }
       }))
+    })
+  }
+  
+  markMessagesSeen(chatId: number, messageIds: number[]) {
+    this.dispatch('markMessagesSeen', async (state, setState) => {
+      if (chatId !== state.chatId) {
+        log.debug(
+          `markMessagesSeen: chatId of event (${chatId}) doesn't match id of selected chat (${state.chatId}). Returning.`
+        )
+        return
+      }
+
+      const markSeen = DeltaBackend.call('messageList.markSeenMessages', messageIds)
+
+      let update = false
+      for (let messageId of messageIds) {
+        console.log(messageId)
+        const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId, true)
+
+        if(pageKey === null) {
+          log.debug(`markMessagesSeen: Couldn't find messageId in any shown pages. Returning`)
+          continue
+        }
+        
+        const message = state.pages[pageKey].messages[indexOnPage]
+      
+        state = this._updateMessage(state, pageKey, indexOnPage, {
+          ...message,
+          message: {
+            ...message.message,
+            msg: {
+              ...(message.message as MessageType).msg,
+              state: C.DC_STATE_IN_SEEN as MessageState
+            }
+          }
+        })
+
+        update = true
+      }
+
+      if (update) {
+        await markSeen
+        state.unreadMessageIds = await DeltaBackend.call('messageList.getUnreadMessageIds', chatId)
+        setState(state)
+      }
     })
   }
   

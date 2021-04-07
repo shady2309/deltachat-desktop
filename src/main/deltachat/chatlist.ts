@@ -6,6 +6,7 @@ import {
   JsonChat,
   JsonContact,
   FullChat,
+  MessageState,
 } from '../../shared/shared-types'
 import SplitOut from './splitout'
 
@@ -98,7 +99,7 @@ export default class DCChatList extends SplitOut {
       summary: {
         text1: summary.text1,
         text2: summary.text2,
-        status: mapCoreMsgStatus2String(summary.state),
+        state: summary.state as MessageState,
       },
       deaddrop,
       isProtected: chat.isProtected,
@@ -218,7 +219,7 @@ export default class DCChatList extends SplitOut {
   }
 }
 // section: Internal functions
-
+// TODO: Delete
 function mapCoreMsgStatus2String(state: number) {
   switch (state) {
     case C.DC_STATE_OUT_FAILED:

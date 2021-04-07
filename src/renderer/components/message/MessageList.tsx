@@ -187,26 +187,27 @@ const MessageList = React.memo(function MessageList({
 		messageElement.setAttribute('style', 'background-color: yellow')
 
 		messageElement.scrollIntoView(true)
-		const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
-		MessageListStore.doneCurrentlyLoadingPage()
 		const scrollTop = messageListRef.current.scrollTop
 		const scrollHeight = messageListRef.current.scrollHeight
 		const clientHeight = messageListRef.current.clientHeight
-		if (scrollTop === 0) {	
+		if (scrollTop === 0 && MessageListStore.canLoadPageBefore(pageKey)) {	
 			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: scrollTop === 0, load page before`)
+
+			MessageListStore.doneCurrentlyLoadingPage()
 			MessageListStore.loadPageBefore([], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: action.payload, id: messageListStore.chatId}
 			}])
-		} else if ((scrollHeight - scrollTop) <= clientHeight) {
+		} else if ((scrollHeight - scrollTop) <= clientHeight && MessageListStore.canLoadPageAfter(pageKey)) {
 			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: ((scrollHeight - scrollTop) <= clientHeight) === true, load page after`)
+			MessageListStore.doneCurrentlyLoadingPage()
 			MessageListStore.loadPageAfter([], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: action.payload, id: messageListStore.chatId}
 			}])
 		} else {
-			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: scrollTop = ${scrollTop}, no need to load anything`)
-
+			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE no need to load anything`)
+			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 		}
 
 	  } else if (action.type === 'SCROLL_BEFORE_FIRST_PAGE') {
@@ -304,6 +305,26 @@ const MessageList = React.memo(function MessageList({
 		])
 		
 	}
+	
+
+	let unreadMessageInViewIntersectionObserver = useRef(null)
+	const onUnreadMessageInView: IntersectionObserverCallback = (entries)  => {
+		const chatId = MessageListStore.state.chatId
+		;(window as unknown as any).requestIdleCallback(() => {
+			if (MessageListStore.isCurrentlyLoadingPage()) return
+			let messageIdsToMarkAsRead = []
+			for (let entry of entries) {
+				if (!entry.isIntersecting) continue
+				const messageKey = entry.target.getAttribute('id')
+				const messageId = messageKey.split('-')[3]
+				messageIdsToMarkAsRead.push(Number.parseInt(messageId))
+			}
+
+			MessageListStore.markMessagesSeen(chatId, messageIdsToMarkAsRead)
+		})
+	}
+
+
 	useEffect(() => {
 		console.log('Rerendering MessageList')
 		
@@ -319,9 +340,16 @@ const MessageList = React.memo(function MessageList({
 			threshold: 0
 		});
 		onMessageListBottomObserver.observe(messageListBottomRef.current)
+		unreadMessageInViewIntersectionObserver.current = new IntersectionObserver(onUnreadMessageInView, {
+			root: null,
+			rootMargin: '0px',
+			threshold: 0
+		});
+
 		return () => {
 			onMessageListTopObserver.disconnect()
 			onMessageListBottomObserver.disconnect()
+			unreadMessageInViewIntersectionObserver.current?.disconnect()
 		}
 	}, [])
 
@@ -351,17 +379,21 @@ const MessageList = React.memo(function MessageList({
 			} else if (message.type === MessageType2.MarkerOne) {
 				return (
 				  <ul key={key} id={key}>
-					<UnreadMessagesMarker key={key} count={messageListStore.unreadMessageIds.length} />
+					<UnreadMessagesMarker key={key} count={messageListStore.marker1MessageCount} />
 				  </ul>
 				)
 			} else if (message.type === MessageType2.Message) {
+				  
+  
 				return (
 				  <ul key={key} id={key}>
 					  <MessageWrapper
 						key={key}
+						key2={key}
 						message={(message.message as MessageType)}
 						conversationType={chat.type === C.DC_CHAT_TYPE_GROUP ? 'group' : 'direct'}
 						isDeviceChat={chat.isDeviceChat}
+						unreadMessageInViewIntersectionObserver={unreadMessageInViewIntersectionObserver}
 					  />
 				  </ul>
 				)
@@ -369,7 +401,7 @@ const MessageList = React.memo(function MessageList({
 		})}
 		{messageListStore.unreadMessageIds.length > 0 && <div className='unread-message-counter'>
 			<div className='counter'>{messageListStore.unreadMessageIds.length}</div>
-			<div className='jump-to-bottom-button' onClick={() => {jumpToMessage(messageListStore.unreadMessageIds[0])}} />
+			<div className='jump-to-bottom-button' onClick={() => {jumpToMessage(messageListStore.messageIds[messageListStore.messageIds.length - 1])}} />
 		</div>}
 	</>
 })

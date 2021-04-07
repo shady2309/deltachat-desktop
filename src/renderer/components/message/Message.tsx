@@ -19,7 +19,7 @@ import {
   MessageType,
   DCContact,
   MessageTypeAttachment,
-  msgStatus,
+  MessageState,
 } from '../../../shared/shared-types'
 import { isGenericAttachment } from '../attachment/Attachment'
 import { useTranslationFunction, ScreenContext } from '../../contexts'
@@ -129,7 +129,7 @@ function buildContextMenu(
   {
     attachment,
     direction,
-    status,
+    state,
     message,
     text,
     conversationType,
@@ -138,7 +138,7 @@ function buildContextMenu(
   {
     attachment: MessageTypeAttachment
     direction: 'incoming' | 'outgoing'
-    status: msgStatus
+    state: MessageState
     message: MessageType | { msg: null }
     text?: string
     conversationType: 'group' | 'direct'
@@ -151,7 +151,7 @@ function buildContextMenu(
   const tx = window.static_translate // don't use the i18n context here for now as this component is inefficient (rendered one menu for every message)
 
   // eslint-disable-next-line
-  const showRetry = status === 'error' && direction === 'outgoing'
+  const showRetry = state === C.DC_STATE_OUT_FAILED && direction === 'outgoing'
   const showAttachmentOptions = attachment && !message.msg.isSetupmessage
 
   const textSelected: boolean = window.getSelection().toString() !== ''
@@ -238,7 +238,7 @@ const Message = (props: {
   const {
     id,
     direction,
-    status,
+    state,
     viewType,
     text,
     hasLocation,
@@ -262,7 +262,7 @@ const Message = (props: {
       {
         attachment,
         direction,
-        status,
+        state,
         message,
         text,
         conversationType,
@@ -426,7 +426,7 @@ const Message = (props: {
           <MessageMetaData
             attachment={!isSetupmessage && attachment}
             direction={direction}
-            status={status}
+            state={state}
             text={text}
             hasLocation={hasLocation}
             timestamp={message.msg.sentAt}

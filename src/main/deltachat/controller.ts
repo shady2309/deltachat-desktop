@@ -3,7 +3,6 @@ import { app as rawApp } from 'electron'
 import { EventEmitter } from 'events'
 import { getLogger } from '../../shared/logger'
 import { JsonContact, Credentials, AppState } from '../../shared/shared-types'
-import { maybeMarkSeen } from '../markseenFix'
 import * as mainWindow from '../windows/main'
 import DCAutocrypt from './autocrypt'
 import DCBackup from './backup'
@@ -182,7 +181,6 @@ export default class DeltaChatController extends EventEmitter {
   }
 
   onIncomingMsg(chatId: number, msgId: number) {
-    maybeMarkSeen(chatId, msgId)
     this.onChatlistUpdated()
     // chatListItem listens to this in the frontend
   }

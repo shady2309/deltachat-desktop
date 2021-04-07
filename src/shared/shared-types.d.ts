@@ -63,6 +63,7 @@ export interface RC_Config {
 import { App } from 'electron'
 import { LocaleData } from '../shared/localize'
 import { QrState } from '../shared/constants'
+import { C } from 'deltachat-node/dist/constants'
 
 export interface ExtendedApp extends App {
   rc: RC_Config
@@ -86,7 +87,7 @@ export interface ChatListItemType {
     | {
         text1: any
         text2: any
-        status: string
+        state: MessageState
       }
     | undefined
   deaddrop: any
@@ -155,22 +156,60 @@ export interface MessageTypeAttachment {
   fileSize: string
 }
 
-export type msgStatus =
-  | 'error'
+export type MessageState = C.DC_STATE_IN_FRESH 
+  | C.DC_STATE_IN_NOTICED
+  | C.DC_STATE_OUT_DELIVERED
+  | C.DC_STATE_OUT_DRAFT
+  | C.DC_STATE_OUT_FAILED
+  | C.DC_STATE_OUT_MDN_RCVD
+  | C.DC_STATE_OUT_PENDING
+  | C.DC_STATE_OUT_PREPARING
+
+export type MessageStateString = 'error'
   | 'sending'
   | 'draft'
   | 'delivered'
   | 'read'
-  | 'sent'
   | ''
 
 export interface MessageType {
   id: number
-  msg: JsonMessage & {
+  msg: {
+    chatId: number;
+    duration: number;
+    file: string;
+    fromId: number;
+    id: number;
+    quotedText: string;
+    quotedMessageId: number;
+    receivedTimestamp: number;
+    sortTimestamp: number;
+    text: string;
+    timestamp: number;
+    hasLocation: boolean;
+    viewType: any;
+    hasDeviatingTimestamp: any;
+    showPadlock: boolean;
+    summary: {
+        state: number;
+        text1: string;
+        text1Meaning: string;
+        text2: string;
+        timestamp: number;
+    };
+    isSetupmessage: boolean;
+    isInfo: boolean;
+    isForwarded: boolean;
+    dimensions: {
+        height: number;
+        width: number;
+    };
+    videochatType: number;
+    videochatUrl: string;
     sentAt: number
     receivedAt: number
     direction: 'outgoing' | 'incoming'
-    status: msgStatus
+    state: MessageState
     attachment?: MessageTypeAttachment
   }
   filemime: string

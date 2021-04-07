@@ -1,4 +1,4 @@
-import { C, MessageState } from 'deltachat-node'
+import { C } from 'deltachat-node'
 import { getLogger } from '../../shared/logger'
 
 const log = getLogger('main/deltachat/messagelist')
@@ -12,7 +12,7 @@ import {
   MessageType,
   MessageSearchResult,
   MessageTypeAttachment,
-  msgStatus,
+  MessageState,
   Message2,
 } from '../../shared/shared-types'
 
@@ -104,7 +104,7 @@ export default class DCMessageList extends SplitOut {
     const countFreshMessages = this._dc.getFreshMessageCount(chatId)
     log.debug(`getUnreadMessageIds: countFreshMessages: ${countFreshMessages}`)
     if (countFreshMessages === 0) return []
-    
+
     const messageIds = this._dc.getChatMessages(chatId, 0, 0)
 
     let foundFreshMessages = 0
@@ -198,7 +198,7 @@ export default class DCMessageList extends SplitOut {
         sentAt: jsonMSG.timestamp * 1000,
         receivedAt: jsonMSG.receivedTimestamp * 1000,
         direction,
-        status: convertMessageStatus(jsonMSG.state),
+        status: jsonMSG.state as MessageState,
         attachment,
       }),
       filemime,
@@ -223,13 +223,13 @@ export default class DCMessageList extends SplitOut {
     const messageIds = this._dc.getChatMessages(
       chatId,
       C.DC_GCM_ADDDAYMARKER,
-      marker1Before
+      marker1Before || 0
     )
     return messageIds
   }
   async getMessages(chatId: number, indexStart: number, indexEnd: number, marker1Before?: number): Promise<Message2[]> {
     log.debug(`getMessages: chatId: ${chatId} marker1Before: ${marker1Before}`)
-    const messageIds = this.getMessageIds(chatId, marker1Before || 0)
+    const messageIds = this.getMessageIds(chatId, marker1Before)
 
     let length = indexEnd - indexStart
     let messages: Message2[] = new Array(length + 1)
@@ -316,7 +316,8 @@ export default class DCMessageList extends SplitOut {
   }
 }
 
-function convertMessageStatus(s: number): msgStatus {
+//TODO: Delete
+function convertMessageStatus(s: number): string {
   switch (s) {
     case C.DC_STATE_IN_FRESH:
       return 'sent'
