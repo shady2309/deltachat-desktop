@@ -156,9 +156,58 @@ const MessageList = React.memo(function MessageList({
 			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 			return
 		}
+		// TODO: Implement check to load more
 		console.debug(firstChild)
 		firstChild.setAttribute('style', 'background-color: yellow')
 		setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+	  } else if (action.type === 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE') {
+		const { pageKey, messageIdIndex } = action.payload
+		const scrollTop = messageListRef.current.scrollTop
+		const scrollHeight = messageListRef.current.scrollHeight
+		const clientHeight = messageListRef.current.clientHeight
+		log.debug(
+			`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE scrollTop: ${scrollTop} scrollHeight ${scrollHeight}`
+		)
+
+		const pageElement = document.querySelector('#' + pageKey)
+		if(!pageElement) {
+			log.warn(
+				`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE pageElement is null, returning`
+			)
+			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			return
+		}
+
+		console.debug(pageElement)
+		const messageKey = calculateMessageKey(pageKey, messageListStore.messageIds[messageIdIndex], messageIdIndex)
+
+		console.log(messageKey)
+		const messageElement = pageElement.querySelector('#' + messageKey)
+		if(!messageElement) {
+			log.warn(
+				`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE messageElement is null, returning`
+			)
+			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			return
+		}
+		console.debug(messageElement)
+		messageElement.setAttribute('style', 'background-color: yellow')
+
+		messageElement.scrollIntoView(true)
+		const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
+		log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: messageListWrapperHeight: ${messageListWrapperHeight} scrollHeight: ${scrollHeight}`)
+		MessageListStore.doneCurrentlyLoadingPage()
+		if (scrollTop === 0) {
+			MessageListStore.loadPageBefore([], [{
+				isLayoutEffect: true,
+				action:{type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: action.payload, id: messageListStore.chatId}
+			}])
+		} else if ((scrollHeight - scrollTop) <= clientHeight) {
+			MessageListStore.loadPageAfter([], [{
+				isLayoutEffect: true,
+				action:{type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: action.payload, id: messageListStore.chatId}
+			}])
+		}
 
 	  } else if (action.type === 'SCROLL_BEFORE_FIRST_PAGE') {
 		log.debug(`SCROLL_BEFORE_FIRST_PAGE`)		  
@@ -295,11 +344,15 @@ const MessageList = React.memo(function MessageList({
 		{iterateMessages((key, messageId, messageIndex, message) => {
             if (message.type === MessageType2.DayMarker) {
 				return (
-				  <DayMarkerInfoMessage key={key} timestamp={(message.message as MessageDayMarker).timestamp} />
+				  <ul key={key} id={key}>
+				  	<DayMarkerInfoMessage key={key} timestamp={(message.message as MessageDayMarker).timestamp} />
+				  </ul>
 				)
 			} else if (message.type === MessageType2.MarkerOne) {
 				return (
+				  <ul key={key} id={key}>
 					<UnreadMessagesMarker key={key} count={messageListStore.unreadMessageIds.length} />
+				  </ul>
 				)
 			} else if (message.type === MessageType2.Message) {
 				return (
@@ -323,6 +376,12 @@ const MessageList = React.memo(function MessageList({
 
 export default MessageList
 
+
+export function calculateMessageKey(pageKey: string, messageId: number, messageIndex: number) {
+	return pageKey + '-' + messageId + '-' + messageIndex
+
+}
+
 export function MessagePage(
 { 
   page,
@@ -339,8 +398,8 @@ export function MessagePage(
 			const messageId: MessageId = _messageId as MessageId 
 			const messageIndex = firstMessageIdIndex + index
 			const message: Message2 = page.messages[index]
-			const key = page.key + '-' + messageId + '-' + messageIndex
-			return mapFunction(key, messageId, messageIndex, message)
+			const messageKey = calculateMessageKey(page.key, messageId, messageIndex)
+			return mapFunction(messageKey, messageId, messageIndex, message)
 
 		  })}
 		</div>
