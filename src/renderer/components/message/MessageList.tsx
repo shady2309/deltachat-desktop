@@ -369,7 +369,7 @@ const MessageList = React.memo(function MessageList({
 		})}
 		{messageListStore.unreadMessageIds.length > 0 && <div className='unread-message-counter'>
 			<div className='counter'>{messageListStore.unreadMessageIds.length}</div>
-			<div className='jump-to-first-unread-message-button' onClick={() => {jumpToMessage(messageListStore.unreadMessageIds[0])}} />
+			<div className='jump-to-bottom-button' onClick={() => {jumpToMessage(messageListStore.unreadMessageIds[0])}} />
 		</div>}
 	</>
 })

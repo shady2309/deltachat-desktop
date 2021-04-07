@@ -103,6 +103,8 @@ export default class DCMessageList extends SplitOut {
   getUnreadMessageIds(chatId: number) {
     const countFreshMessages = this._dc.getFreshMessageCount(chatId)
     log.debug(`getUnreadMessageIds: countFreshMessages: ${countFreshMessages}`)
+    if (countFreshMessages === 0) return []
+    
     const messageIds = this._dc.getChatMessages(chatId, 0, 0)
 
     let foundFreshMessages = 0

@@ -129,18 +129,19 @@ export class PageStore extends Store<PageStoreState> {
   
   async jumpToMessage(chatId: number, messageId: number) {
     return this.dispatch('jumpToMessage', async (state: PageStoreState, setState) => {
-      const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId)
-      const unreadMessageIds = await DeltaBackend.call('messageList.getUnreadMessageIds', chatId)
       log.debug(`jumpToMessage: chatId: ${chatId} messageId: ${messageId}`)
+      const unreadMessageIds = await DeltaBackend.call('messageList.getUnreadMessageIds', chatId)
+      const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId, unreadMessageIds[0] || 0)
+      
       const jumpToMessageIndex = messageIds.indexOf(messageId)
 
 
       const [firstMessageIdIndex, lastMessageIdIndex] = this._calculateIndexesForPageWithMessageIdInMiddle(messageIds, jumpToMessageIndex)
+      
       let {pages, pageOrdering} = await this._loadPageWithFirstMessageIndex(chatId, messageIds, firstMessageIdIndex, lastMessageIdIndex, unreadMessageIds[0] || 0)
       
-      this.pushLayoutEffect({type: 'SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {pageKey: pageOrdering[0]}, id: chatId})
-      
-      
+      this.pushLayoutEffect({type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {pageKey: pageOrdering[0], messageIdIndex: jumpToMessageIndex}, id: chatId}) 
+
       setState({
         pages,
         pageOrdering,
