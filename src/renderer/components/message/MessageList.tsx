@@ -162,13 +162,6 @@ const MessageList = React.memo(function MessageList({
 		setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 	  } else if (action.type === 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE') {
 		const { pageKey, messageIdIndex } = action.payload
-		const scrollTop = messageListRef.current.scrollTop
-		const scrollHeight = messageListRef.current.scrollHeight
-		const clientHeight = messageListRef.current.clientHeight
-		log.debug(
-			`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE scrollTop: ${scrollTop} scrollHeight ${scrollHeight}`
-		)
-
 		const pageElement = document.querySelector('#' + pageKey)
 		if(!pageElement) {
 			log.warn(
@@ -195,18 +188,25 @@ const MessageList = React.memo(function MessageList({
 
 		messageElement.scrollIntoView(true)
 		const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
-		log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: messageListWrapperHeight: ${messageListWrapperHeight} scrollHeight: ${scrollHeight}`)
 		MessageListStore.doneCurrentlyLoadingPage()
-		if (scrollTop === 0) {
+		const scrollTop = messageListRef.current.scrollTop
+		const scrollHeight = messageListRef.current.scrollHeight
+		const clientHeight = messageListRef.current.clientHeight
+		if (scrollTop === 0) {	
+			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: scrollTop === 0, load page before`)
 			MessageListStore.loadPageBefore([], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: action.payload, id: messageListStore.chatId}
 			}])
 		} else if ((scrollHeight - scrollTop) <= clientHeight) {
+			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: ((scrollHeight - scrollTop) <= clientHeight) === true, load page after`)
 			MessageListStore.loadPageAfter([], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: action.payload, id: messageListStore.chatId}
 			}])
+		} else {
+			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: scrollTop = ${scrollTop}, no need to load anything`)
+
 		}
 
 	  } else if (action.type === 'SCROLL_BEFORE_FIRST_PAGE') {

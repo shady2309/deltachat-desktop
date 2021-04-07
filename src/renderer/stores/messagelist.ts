@@ -1,3 +1,4 @@
+import { C } from "deltachat-node/dist/constants"
 import { getLogger } from "../../shared/logger"
 import { Message2, MessageType } from "../../shared/shared-types"
 import { DeltaBackend, sendMessageParams } from "../delta-remote"
@@ -82,15 +83,19 @@ export class PageStore extends Store<PageStoreState> {
       let [pages, pageOrdering]: [PageStoreState['pages'], PageStoreState['pageOrdering']] = [{}, []]
 
       if (firstUnreadMessageId !== -1) {
-        const firstUnreadMessageIdIndex = Math.max(0, messageIds.indexOf(firstUnreadMessageId) - 1)
-
+        const firstUnreadMessageIdIndex = Math.max(0, messageIds.indexOf(firstUnreadMessageId))
         const [firstMessageIdIndex, lastMessageIdIndex] = this._calculateIndexesForPageWithMessageIdInMiddle(messageIds, firstUnreadMessageIdIndex)
         
         let tmp = await this._loadPageWithFirstMessageIndex(chatId, messageIds, firstMessageIdIndex, lastMessageIdIndex, firstUnreadMessageId|| 0)
         
         pages = tmp.pages
         pageOrdering = tmp.pageOrdering
-        this.pushLayoutEffect({type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {pageKey: pageOrdering[0], messageIdIndex: firstUnreadMessageIdIndex}, id: chatId}) 
+        
+        let messageIdIndexToFocus = Math.max(0, firstUnreadMessageIdIndex - 1)
+        if (messageIds[messageIdIndexToFocus] === C.DC_MSG_ID_DAYMARKER) {
+          messageIdIndexToFocus = Math.max(0, messageIdIndexToFocus - 1)
+        }
+        this.pushLayoutEffect({type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {pageKey: pageOrdering[0], messageIdIndex: messageIdIndexToFocus}, id: chatId}) 
       } else {
         let firstMessageIndexOnLastPage = Math.max(0, messageIds.length - PAGE_SIZE)
         const endMessageIdIndex = Math.min(firstMessageIndexOnLastPage + PAGE_SIZE, messageIds.length - 1)
