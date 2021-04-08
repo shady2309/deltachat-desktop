@@ -597,6 +597,35 @@ export class PageStore extends Store<PageStoreState> {
     })
   }
   
+  deleteMessage(messageId: number) {
+    this.dispatch('deleteMessage', async (state, setState) => {
+        log.debug(`deleteMessage: deleting message with id ${messageId}`)
+        const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId, true)
+
+        DeltaBackend.call('messageList.deleteMessage', messageId)
+        if (pageKey === null) {
+          log.debug(`deleteMessage: message with id ${messageId} is not on any currently loaded page. Returning.`)
+          return
+        }
+
+        setState({
+          ...state,
+          messageIds: state.messageIds.filter(mId => mId !== messageId),
+          pages: {
+            ...state.pages,
+            [pageKey]: {
+              ...state.pages[pageKey],
+              messageIds: state.pages[pageKey].messageIds.filter(mId => mId !== messageId),
+              messages: {
+                ...state.pages[pageKey].messages,
+                [messageId]: undefined
+              }
+            }
+          } 
+        })
+    })
+  }
+  
 
   init() {
     ipcBackend.on('DC_EVENT_MSG_DELIVERED', (_evt, [chatId, messageId]) => {

@@ -5,7 +5,7 @@ import { MessageType, JsonMessage } from '../../../shared/shared-types'
 import { ChatStoreDispatch } from '../../stores/chat'
 import { DeltaBackend } from '../../delta-remote'
 import { runtime } from '../../runtime'
-import { selectChat } from '../helpers/ChatMethods'
+import { deleteMessage, selectChat } from '../helpers/ChatMethods'
 /**
  * json representation of the message object we get from the backend
  */
@@ -27,7 +27,7 @@ export function forwardMessage(message: MessageType) {
   window.__openDialog('ForwardMessage', { message })
 }
 
-export function deleteMessage(
+export function deleteMessageWithConfirm(
   msg: MsgObject,
   chatStoreDispatch: ChatStoreDispatch
 ) {
@@ -35,8 +35,7 @@ export function deleteMessage(
   window.__openDialog('ConfirmationDialog', {
     message: tx('ask_delete_message_desktop'),
     confirmLabel: tx('delete'),
-    cb: (yes: boolean) =>
-      yes && chatStoreDispatch({ type: 'UI_DELETE_MESSAGE', payload: msg.id }),
+    cb: (yes: boolean) => yes && deleteMessage(msg.id)
   })
 }
 

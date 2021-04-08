@@ -384,6 +384,7 @@ const MessageList = React.memo(function MessageList({
 
 	return <>
 		{iterateMessages((key, messageId, messageIndex, message) => {
+			console.log('iterator', key, messageId)
             if (message.type === MessageType2.DayMarker) {
 				return (
 				  <ul key={key} id={key}>
@@ -440,8 +441,8 @@ export function MessagePage(
 	return (
 		<div className={'message-list-page'} id={page.key} key={page.key}>
 		  
-		  {page.messageIds.map((_messageId, index) => {
-			const messageId: MessageId = _messageId as MessageId 
+		  {page.messageIds.map((messageId: MessageId, index) => {
+			console.log(page.key, messageId, index)
 			const messageIndex = firstMessageIdIndex + index
 			const message: Message2 = page.messages[index]
 			const messageKey = calculateMessageKey(page.key, messageId, messageIndex)

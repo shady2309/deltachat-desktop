@@ -169,3 +169,7 @@ export const jumpToMessage = async (messageId: number) => {
 export const sendMessage = async (chatId: number, messageParams: sendMessageParams) => {
   await MessageListStore.sendMessage(chatId, messageParams)
 }
+
+export const deleteMessage = async (messageId: number) => {
+  await MessageListStore.deleteMessage(messageId)
+}

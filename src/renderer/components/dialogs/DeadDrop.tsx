@@ -7,6 +7,7 @@ import { DCContact, MessageType, FullChat } from '../../../shared/shared-types'
 import { SmallDialog } from './DeltaDialog'
 import { useTranslationFunction } from '../../contexts'
 import { C } from 'deltachat-node/dist/constants'
+import { deleteMessage } from '../helpers/ChatMethods'
 
 /**
  * handle contact requests
@@ -47,6 +48,26 @@ export default function DeadDrop(props: {
         // do not delete the message, even if we want that in the future, the core should handle it.
         break
     }
+  const never = () => {
+    DeltaBackend.call('contacts.blockContact', contact.id)
+    deleteMessage(msg.id)
+    onClose()
+  }
+
+  const notNow = async () => {
+    const contactId = contact.id
+    await DeltaBackend.call('contacts.markNoticedContact', contactId)
+    onClose()
+  }
+
+  const yes = async () => {
+    const messageId = msg.id
+    const contactId = contact.id
+    const chatId = await DeltaBackend.call('contacts.acceptContactRequest', {
+      messageId,
+      contactId,
+    })
+    chatStoreDispatch({ type: 'SELECT_CHAT', payload: chatId })
     onClose()
   }
 
