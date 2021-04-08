@@ -3,8 +3,9 @@ import { getLogger } from "../../shared/logger"
 import { Message2, MessageState, MessageType } from "../../shared/shared-types"
 import { DeltaBackend, sendMessageParams } from "../delta-remote"
 import { ipcBackend } from "../ipc"
-import { PAGE_SIZE } from "./chat"
 import { Action, Store } from "./store2"
+ 
+export const PAGE_SIZE = 20
 
 export type MessageId = number
 const log = getLogger('renderer/message/MessageList')

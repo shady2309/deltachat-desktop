@@ -178,7 +178,6 @@ export default class DCMessageList extends SplitOut {
     const filename = msg.getFilename()
     const filesize = msg.getFilebytes()
     const viewType = msg.getViewType()
-    console.log(msg)
     const fromId = msg.getFromId()
     const isMe = fromId === C.DC_CONTACT_ID_SELF
     const setupCodeBegin = msg.getSetupcodebegin()

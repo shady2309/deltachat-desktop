@@ -13,6 +13,7 @@ import { jumpToMessage } from '../helpers/ChatMethods';
 const log = getLogger('renderer/message/MessageList')
 
 
+
 function withoutTopPages(messageListRef: React.MutableRefObject<any>, messageListWrapperRef: React.MutableRefObject<any>) {
 	const pageOrdering = MessageListStore.state.pageOrdering
 
@@ -186,10 +187,10 @@ const MessageList = React.memo(function MessageList({
 		console.debug(messageElement)
 		//messageElement.setAttribute('style', 'background-color: yellow')
 
-		const scrollTop = messageListRef.current.scrollTop
+		let scrollTop = messageListRef.current.scrollTop
 		const scrollHeight = messageListRef.current.scrollHeight
 		const clientHeight = messageListRef.current.clientHeight
-		messageListRef.current.scrollTop = (messageElement as unknown as any).offsetTop
+		scrollTop = messageListRef.current.scrollTop = (messageElement as unknown as any).offsetTop
 		if (scrollTop === 0 && MessageListStore.canLoadPageBefore(pageKey)) {	
 			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: scrollTop === 0, load page before`)
 
