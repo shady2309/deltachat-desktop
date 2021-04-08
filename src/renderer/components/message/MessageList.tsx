@@ -311,17 +311,30 @@ const MessageList = React.memo(function MessageList({
 	let unreadMessageInViewIntersectionObserver = useRef(null)
 	const onUnreadMessageInView: IntersectionObserverCallback = (entries)  => {
 		const chatId = MessageListStore.state.chatId
-		;(window as unknown as any).requestIdleCallback(() => {
+		setTimeout(() => {
 			if (MessageListStore.isCurrentlyLoadingPage()) return
+			
+			const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
+
 			let messageIdsToMarkAsRead = []
 			for (let entry of entries) {
 				if (!entry.isIntersecting) continue
+				const messageHeight = entry.target.clientHeight
+
+				let expectedIntersectionRatio = Math.min(messageListWrapperHeight / messageHeight, 1)
+				if (expectedIntersectionRatio < 0.1) expectedIntersectionRatio = 0
+
+				if (entry.intersectionRatio < expectedIntersectionRatio) continue
+				
 				const messageKey = entry.target.getAttribute('id')
 				const messageId = messageKey.split('-')[3]
 				messageIdsToMarkAsRead.push(Number.parseInt(messageId))
+				unreadMessageInViewIntersectionObserver.current.unobserve(entry.target)
 			}
 
-			MessageListStore.markMessagesSeen(chatId, messageIdsToMarkAsRead)
+			if (messageIdsToMarkAsRead.length > 0) {
+				MessageListStore.markMessagesSeen(chatId, messageIdsToMarkAsRead)
+			}
 		})
 	}
 
@@ -344,7 +357,7 @@ const MessageList = React.memo(function MessageList({
 		unreadMessageInViewIntersectionObserver.current = new IntersectionObserver(onUnreadMessageInView, {
 			root: null,
 			rootMargin: '0px',
-			threshold: 0
+			threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
 		});
 
 		return () => {

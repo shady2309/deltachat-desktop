@@ -15,7 +15,8 @@ type RenderMessageProps = {
 }
      
 export const MessageWrapper = (props: RenderMessageProps) => {
-  const shouldInViewObserve = props.message.msg.state === C.DC_STATE_IN_FRESH || props.message.msg.state === C.DC_STATE_IN_NOTICED
+  const state = props.message.msg.state
+  const shouldInViewObserve = state === C.DC_STATE_IN_FRESH || state === C.DC_STATE_IN_NOTICED
 
   useEffect(() => {
     if (!shouldInViewObserve) return
@@ -24,11 +25,11 @@ export const MessageWrapper = (props: RenderMessageProps) => {
     
     const messageElement = document.querySelector('#' + props.key2)
     if (!messageElement) {
-      log.info(`MessageWrapper: key: ${props.key2} couldn't find dom element. Returning`)
+      log.error(`MessageWrapper: key: ${props.key2} couldn't find dom element. Returning`)
       return
     }
     if (!props.unreadMessageInViewIntersectionObserver.current || !props.unreadMessageInViewIntersectionObserver.current.observe) {
-      log.info(`MessageWrapper: key: ${props.key2} unreadMessageInViewIntersectionObserver is null. Returning`)
+      log.error(`MessageWrapper: key: ${props.key2} unreadMessageInViewIntersectionObserver is null. Returning`)
       return
     }
     

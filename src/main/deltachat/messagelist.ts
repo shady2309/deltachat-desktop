@@ -117,8 +117,9 @@ export default class DCMessageList extends SplitOut {
     for(let i = messageIds.length -1; i >= 0; i--) {
       const messageId = messageIds[i]
 
-      const isFresh = this._dc.getMessage(messageId).getState().isFresh()
-    log.debug(`getUnreadMessageIds: messageId: ${messageId} isFresh: ${isFresh}`)
+      const state = this._dc.getMessage(messageId).getState().state
+      const isFresh = state === C.DC_STATE_IN_FRESH || state === C.DC_STATE_IN_NOTICED
+       log.debug(`getUnreadMessageIds: messageId: ${messageId} isFresh: ${isFresh}`)
       if (!isFresh) continue
         
       foundFreshMessages++

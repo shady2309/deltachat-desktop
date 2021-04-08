@@ -545,21 +545,25 @@ export class PageStore extends Store<PageStoreState> {
   }
   
   markMessagesSeen(chatId: number, messageIds: number[]) {
-    return
     this.dispatch('markMessagesSeen', async (state, setState) => {
+
       if (chatId !== state.chatId) {
         log.debug(
           `markMessagesSeen: chatId of event (${chatId}) doesn't match id of selected chat (${state.chatId}). Returning.`
         )
         return
       }
+      log.debug(
+        `markMessagesSeen: chatId:(${chatId}) messageIds: ${JSON.stringify(messageIds)} unreadMessageIds: ${JSON.stringify(state.unreadMessageIds)}`
+      )
 
-      //const markSeen = DeltaBackend.call('messageList.markSeenMessages', messageIds)
+      const markSeen = DeltaBackend.call('messageList.markSeenMessages', messageIds)
 
       let update = false
+      let updatedState = state
       for (let messageId of messageIds) {
-        console.log(messageId)
         const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId, true)
+        console.log(messageId, pageKey, indexOnPage)
 
         if(pageKey === null) {
           log.debug(`markMessagesSeen: Couldn't find messageId in any shown pages. Returning`)
@@ -568,7 +572,7 @@ export class PageStore extends Store<PageStoreState> {
         
         const message = state.pages[pageKey].messages[indexOnPage]
       
-        state = this._updateMessage(state, pageKey, indexOnPage, {
+        /*updatedState = this._updateMessage(updatedState, pageKey, indexOnPage, {
           ...message,
           message: {
             ...message.message,
@@ -577,15 +581,18 @@ export class PageStore extends Store<PageStoreState> {
               state: C.DC_STATE_IN_SEEN as MessageState
             }
           }
-        })
+        })*/
 
         update = true
       }
 
       if (update) {
-        //await markSeen
-        state.unreadMessageIds = state.unreadMessageIds.filter((value) => messageIds.indexOf(value) !== -1)
-        setState(state)
+        await markSeen
+        //updatedState.unreadMessageIds = state.unreadMessageIds.filter((value) => messageIds.indexOf(value) === -1)
+        setState({
+          ...state,
+          unreadMessageIds: state.unreadMessageIds.filter(mId => messageIds.indexOf(mId) === -1)
+        })
       }
     })
   }
