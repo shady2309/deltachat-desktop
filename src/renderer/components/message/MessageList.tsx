@@ -312,22 +312,20 @@ const MessageList = React.memo(function MessageList({
 	const onUnreadMessageInView: IntersectionObserverCallback = (entries)  => {
 		const chatId = MessageListStore.state.chatId
 		setTimeout(() => {
-			if (MessageListStore.isCurrentlyLoadingPage()) return
+			log.debug(`onUnreadMessageInView: entries.length: ${entries.length}`)
 			
 			const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
 
 			let messageIdsToMarkAsRead = []
 			for (let entry of entries) {
 				if (!entry.isIntersecting) continue
+				const messageKey = entry.target.getAttribute('id')
+				const messageId = messageKey.split('-')[4]
 				const messageHeight = entry.target.clientHeight
 
-				let expectedIntersectionRatio = Math.min(messageListWrapperHeight / messageHeight, 1)
-				if (expectedIntersectionRatio < 0.1) expectedIntersectionRatio = 0
-
-				if (entry.intersectionRatio < expectedIntersectionRatio) continue
+				log.debug(`onUnreadMessageInView: messageId ${messageId} height: ${messageHeight} intersectionRate: ${entry.intersectionRatio}`)
+				log.debug(`onUnreadMessageInView: messageId ${messageId} marking as read`)
 				
-				const messageKey = entry.target.getAttribute('id')
-				const messageId = messageKey.split('-')[3]
 				messageIdsToMarkAsRead.push(Number.parseInt(messageId))
 				unreadMessageInViewIntersectionObserver.current.unobserve(entry.target)
 			}
@@ -357,7 +355,7 @@ const MessageList = React.memo(function MessageList({
 		unreadMessageInViewIntersectionObserver.current = new IntersectionObserver(onUnreadMessageInView, {
 			root: null,
 			rootMargin: '0px',
-			threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+			threshold: [0, 1]
 		});
 
 		return () => {
@@ -368,52 +366,50 @@ const MessageList = React.memo(function MessageList({
 	}, [])
 
 	const iterateMessages = (mapFunction: (key: string, messageId: MessageId, messageIndex: number, message: Message2) => JSX.Element) => {
-		return (
-			<div className='message-list-wrapper' style={{height: '100%'}} ref={messageListWrapperRef}>
-				<div id='message-list' ref={messageListRef}>   
-					<div key='message-list-top' id='message-list-top' ref={messageListTopRef} />
-					{messageListStore.pageOrdering.map((pageKey: string) => {
-						return <MessagePage key={pageKey} page={messageListStore.pages[pageKey]} mapFunction={mapFunction}/>
-					})}
-					<div key='message-list-bottom' id='message-list-bottom' ref={messageListBottomRef} />
-				</div>
-			</div>
-		)
+		return messageListStore.pageOrdering.map((pageKey: string) => {
+			return <MessagePage key={pageKey} page={messageListStore.pages[pageKey]} mapFunction={mapFunction}/>
+		})
 	}
 
 
 	return <>
-		{iterateMessages((key, messageId, messageIndex, message) => {
-			console.log('iterator', key, messageId)
-            if (message.type === MessageType2.DayMarker) {
-				return (
-				  <ul key={key} id={key}>
-				  	<DayMarkerInfoMessage key={key} timestamp={(message.message as MessageDayMarker).timestamp} />
-				  </ul>
-				)
-			} else if (message.type === MessageType2.MarkerOne) {
-				return (
-				  <ul key={key} id={key}>
-					<UnreadMessagesMarker key={key} count={messageListStore.marker1MessageCount} />
-				  </ul>
-				)
-			} else if (message.type === MessageType2.Message) {
-				  
-  
-				return (
-				  <ul key={key} id={key}>
-					  <MessageWrapper
-						key={key}
-						key2={key}
-						message={(message.message as MessageType)}
-						conversationType={chat.type === C.DC_CHAT_TYPE_GROUP ? 'group' : 'direct'}
-						isDeviceChat={chat.isDeviceChat}
-						unreadMessageInViewIntersectionObserver={unreadMessageInViewIntersectionObserver}
-					  />
-				  </ul>
-				)
-			} 
-		})}
+		<div className='message-list-wrapper' style={{height: '100%'}} ref={messageListWrapperRef}>
+			<div id='message-list' ref={messageListRef}>   
+				<div key='message-list-top' id='message-list-top' ref={messageListTopRef} />
+				{iterateMessages((key, messageId, messageIndex, message) => {
+					console.log('iterator', key, messageId)
+					if (message.type === MessageType2.DayMarker) {
+						return (
+						  <ul key={key} id={key}>
+							<DayMarkerInfoMessage key={key} timestamp={(message.message as MessageDayMarker).timestamp} />
+						  </ul>
+						)
+					} else if (message.type === MessageType2.MarkerOne) {
+						return (
+						  <ul key={key} id={key}>
+							<UnreadMessagesMarker key={key} count={messageListStore.marker1MessageCount} />
+						  </ul>
+						)
+					} else if (message.type === MessageType2.Message) {
+						  
+		  
+						return (
+						  <ul key={key} id={key}>
+							  <MessageWrapper
+								key={key}
+								key2={key}
+								message={(message.message as MessageType)}
+								conversationType={chat.type === C.DC_CHAT_TYPE_GROUP ? 'group' : 'direct'}
+								isDeviceChat={chat.isDeviceChat}
+								unreadMessageInViewIntersectionObserver={unreadMessageInViewIntersectionObserver}
+							  />
+						  </ul>
+						)
+					} 
+				})}
+				<div key='message-list-bottom' id='message-list-bottom' ref={messageListBottomRef} />
+			</div>
+		</div>
 		{messageListStore.unreadMessageIds.length > 0 && <div className='unread-message-counter'>
 			<div className='counter'>{messageListStore.unreadMessageIds.length}</div>
 			<div className='jump-to-bottom-button' onClick={() => {jumpToMessage(messageListStore.messageIds[messageListStore.messageIds.length - 1])}} />

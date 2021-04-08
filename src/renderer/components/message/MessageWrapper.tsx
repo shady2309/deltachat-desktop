@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useLayoutEffect } from 'react'
 import Message from './Message'
 import { MessageType } from '../../../shared/shared-types'
 import { C } from 'deltachat-node/dist/constants'
@@ -18,13 +18,13 @@ export const MessageWrapper = (props: RenderMessageProps) => {
   const state = props.message.msg.state
   const shouldInViewObserve = state === C.DC_STATE_IN_FRESH || state === C.DC_STATE_IN_NOTICED
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!shouldInViewObserve) return
 
     log.debug(`MessageWrapper: key: ${props.key2} We should observe this message if in view`)
     
-    const messageElement = document.querySelector('#' + props.key2)
-    if (!messageElement) {
+    const messageBottomElement = document.querySelector('#bottom-' + props.key2)
+    if (!messageBottomElement) {
       log.error(`MessageWrapper: key: ${props.key2} couldn't find dom element. Returning`)
       return
     }
@@ -33,15 +33,16 @@ export const MessageWrapper = (props: RenderMessageProps) => {
       return
     }
     
-    props.unreadMessageInViewIntersectionObserver.current.observe(messageElement)
+    props.unreadMessageInViewIntersectionObserver.current.observe(messageBottomElement)
     log.debug(`MessageWrapper: key: ${props.key2} Successfully observing ;)`)
     
-    return () => props.unreadMessageInViewIntersectionObserver.current.unobserve(messageElement)
+    return () => props.unreadMessageInViewIntersectionObserver.current.unobserve(messageBottomElement)
   }, [])
   
   return (
     <li id={props.key2}>
       <RenderMessage {...props} />
+      <div id={'bottom-' + props.key2} />
     </li>
   )
 }
