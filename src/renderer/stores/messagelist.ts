@@ -127,10 +127,15 @@ export class PageStore extends Store<PageStoreState> {
   
   _calculateIndexesForPageWithMessageIdInMiddle(messageIds: number[], middleMessageIdIndex: number) {
     const half_page_size = PAGE_SIZE / 2
-    const firstMessageIdIndex = Math.max(middleMessageIdIndex - half_page_size, 0)
+    let firstMessageIdIndex = Math.max(middleMessageIdIndex - 3, 0)
     const currentDistance = middleMessageIdIndex - firstMessageIdIndex
-    const remainingDistance = PAGE_SIZE - currentDistance
+    let remainingDistance = PAGE_SIZE - currentDistance
     const lastMessageIdIndex = Math.min(middleMessageIdIndex + remainingDistance, messageIds.length - 1)
+  
+    remainingDistance = lastMessageIdIndex - firstMessageIdIndex
+    if (remainingDistance <= PAGE_SIZE) {
+      firstMessageIdIndex = Math.max(firstMessageIdIndex - remainingDistance, 0)
+    }
 
     return [firstMessageIdIndex, lastMessageIdIndex]
   }
@@ -540,6 +545,7 @@ export class PageStore extends Store<PageStoreState> {
   }
   
   markMessagesSeen(chatId: number, messageIds: number[]) {
+    return
     this.dispatch('markMessagesSeen', async (state, setState) => {
       if (chatId !== state.chatId) {
         log.debug(
@@ -548,7 +554,7 @@ export class PageStore extends Store<PageStoreState> {
         return
       }
 
-      const markSeen = DeltaBackend.call('messageList.markSeenMessages', messageIds)
+      //const markSeen = DeltaBackend.call('messageList.markSeenMessages', messageIds)
 
       let update = false
       for (let messageId of messageIds) {
@@ -577,8 +583,8 @@ export class PageStore extends Store<PageStoreState> {
       }
 
       if (update) {
-        await markSeen
-        state.unreadMessageIds = await DeltaBackend.call('messageList.getUnreadMessageIds', chatId)
+        //await markSeen
+        state.unreadMessageIds = state.unreadMessageIds.filter((value) => messageIds.indexOf(value) !== -1)
         setState(state)
       }
     })

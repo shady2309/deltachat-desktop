@@ -104,7 +104,7 @@ const MessageList = React.memo(function MessageList({
 			
 			log.debug(`SCROLL_BEFORE_LAST_PAGE lastPage ${lastPage.key}`)		  
 
-			scrollBeforePage(messageListRef, lastPage.key)
+			//scrollBeforePage(messageListRef, lastPage.key)
 			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 		})
 	  }
@@ -184,12 +184,12 @@ const MessageList = React.memo(function MessageList({
 			return
 		}
 		console.debug(messageElement)
-		messageElement.setAttribute('style', 'background-color: yellow')
+		//messageElement.setAttribute('style', 'background-color: yellow')
 
-		messageElement.scrollIntoView(true)
 		const scrollTop = messageListRef.current.scrollTop
 		const scrollHeight = messageListRef.current.scrollHeight
 		const clientHeight = messageListRef.current.clientHeight
+		messageListRef.current.scrollTop = (messageElement as unknown as any).offsetTop
 		if (scrollTop === 0 && MessageListStore.canLoadPageBefore(pageKey)) {	
 			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: scrollTop === 0, load page before`)
 
@@ -330,13 +330,13 @@ const MessageList = React.memo(function MessageList({
 		
 		let onMessageListTopObserver = new IntersectionObserver(onMessageListTop, {
 			root: null,
-			rootMargin: '0px',
-			threshold: 1.0
+			rootMargin: '80px',
+			threshold: 0
 		});
 		onMessageListTopObserver.observe(messageListTopRef.current)
 		let onMessageListBottomObserver = new IntersectionObserver(onMessageListBottom, {
 			root: null,
-			rootMargin: '0px',
+			rootMargin: '80px',
 			threshold: 0
 		});
 		onMessageListBottomObserver.observe(messageListBottomRef.current)
