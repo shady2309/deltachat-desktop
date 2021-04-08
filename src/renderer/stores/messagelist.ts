@@ -172,8 +172,13 @@ export class PageStore extends Store<PageStoreState> {
   }
   
 
-  async loadPageBefore(withoutPages: string[], dispatchesAfter?: DispatchesAfter) {
+  async loadPageBefore(chatId: number, withoutPages: string[], dispatchesAfter?: DispatchesAfter) {
     return this.dispatch('loadPageBefore', async (state: PageStoreState, setState) => {
+      if(chatId !== state.chatId) {
+        log.debug(`loadPageBefore: chatId ${chatId} doesn't match with state.chatId ${state.chatId} returning`)
+        return
+      }
+      
       const firstPage = state.pages[state.pageOrdering[0]]
       
       if(!firstPage) {
@@ -217,8 +222,13 @@ export class PageStore extends Store<PageStoreState> {
     return this.state.pages[pageKey].lastMessageIdIndex < (this.state.messageIds.length - 1)
   }
   
-  async loadPageAfter(withoutPages: string[], dispatchesAfter?: DispatchesAfter) {
+  async loadPageAfter(chatId: number, withoutPages: string[], dispatchesAfter?: DispatchesAfter) {
     return this.dispatch('loadPageAfter', async (state: PageStoreState, setState) => {
+      if(chatId !== state.chatId) {
+        log.debug(`loadPageAfter: chatId ${chatId} doesn't match with state.chatId ${state.chatId} returning`)
+        return
+      }
+      
       const lastPage = state.pages[state.pageOrdering[state.pageOrdering.length - 1]]
       
       if(!lastPage) {

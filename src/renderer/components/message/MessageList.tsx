@@ -195,14 +195,14 @@ const MessageList = React.memo(function MessageList({
 			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: scrollTop === 0, load page before`)
 
 			MessageListStore.doneCurrentlyLoadingPage()
-			MessageListStore.loadPageBefore([], [{
+			MessageListStore.loadPageBefore(action.id, [], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: action.payload, id: messageListStore.chatId}
 			}])
 		} else if ((scrollHeight - scrollTop) <= clientHeight && MessageListStore.canLoadPageAfter(pageKey)) {
 			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: ((scrollHeight - scrollTop) <= clientHeight) === true, load page after`)
 			MessageListStore.doneCurrentlyLoadingPage()
-			MessageListStore.loadPageAfter([], [{
+			MessageListStore.loadPageAfter(action.id, [], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: action.payload, id: messageListStore.chatId}
 			}])
@@ -251,7 +251,7 @@ const MessageList = React.memo(function MessageList({
 			const withoutPages = withoutTopPages(messageListRef, messageListWrapperRef)
 			const messageId = MessageListStore.state.messageIds[MessageListStore.state.messageIds.length - 1] 
 
-			MessageListStore.loadPageAfter(withoutPages, [
+			MessageListStore.loadPageAfter(action.id, withoutPages, [
 				{
 					isLayoutEffect: true,
 					action: {type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: messageId, id: messageListStore.chatId}
@@ -265,22 +265,24 @@ const MessageList = React.memo(function MessageList({
 	
 	
 	const onMessageListTop: IntersectionObserverCallback = (entries) => {
+		const chatId = MessageListStore.state.chatId
 		const pageOrdering = MessageListStore.state.pageOrdering
 		log.debug(`onMessageListTop`)
 		if(!entries[0].isIntersecting || MessageListStore.currentlyLoadingPage === true || pageOrdering.length === 0) return
 		let withoutPages = withoutBottomPages(messageListRef, messageListWrapperRef)
 
-		MessageListStore.loadPageBefore(withoutPages, [
+		MessageListStore.loadPageBefore(chatId, withoutPages, [
 			{
 				isLayoutEffect: true,
-				action: {type: 'SCROLL_BEFORE_FIRST_PAGE', payload: {}, id: messageListStore.chatId}
+				action: {type: 'SCROLL_BEFORE_FIRST_PAGE', payload: {}, id: chatId}
 			},
 		])
 
 	}
 	const onMessageListBottom: IntersectionObserverCallback = (entries)  => {
+		const chatId = MessageListStore.state.chatId
 		const pageOrdering = MessageListStore.state.pageOrdering
-		if(!entries[0].isIntersecting || MessageListStore.currentlyLoadingPage === true) return
+		if(!entries[0].isIntersecting || MessageListStore.currentlyLoadingPage === true || pageOrdering.length === 0) return
 		log.debug('onMessageListBottom')
 		let withoutPages = []
 		let withoutPagesHeight = messageListRef.current.scrollHeight
@@ -298,10 +300,10 @@ const MessageList = React.memo(function MessageList({
 				break
 			}
 		}
-		MessageListStore.loadPageAfter(withoutPages, [
+		MessageListStore.loadPageAfter(chatId, withoutPages, [
 			{
 				isLayoutEffect: false,
-				action: {type: 'SCROLL_BEFORE_LAST_PAGE', payload: {}, id: messageListStore.chatId}
+				action: {type: 'SCROLL_BEFORE_LAST_PAGE', payload: {}, id: chatId}
 			},
 		])
 		
