@@ -15,7 +15,7 @@ export function onDownload(msg: MsgObject) {
   runtime.downloadFile(msg.file)
 }
 
-export function openAttachmentInShell(msg: MsgObject) {
+export function openAttachmentInShell(msg: MessageType['msg']) {
   if (!runtime.openPath(msg.file)) {
     log.info(
       "file couldn't be opened, try saving it in a different place and try to open it from there"

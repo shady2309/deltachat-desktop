@@ -172,6 +172,13 @@ export type MessageStateString = 'error'
   | 'read'
   | ''
 
+export type MessageQuote = {
+  messageId: number,
+  text: string,
+  displayName: string
+  displayColor: string
+} | null
+
 export interface MessageType {
   id: number
   msg: {
@@ -180,8 +187,7 @@ export interface MessageType {
     file: string;
     fromId: number;
     id: number;
-    quotedText: string;
-    quotedMessageId: number;
+    quote: MessageQuote 
     receivedTimestamp: number;
     sortTimestamp: number;
     text: string;

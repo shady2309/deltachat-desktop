@@ -1,4 +1,7 @@
 import { C } from 'deltachat-node'
+
+// @ts-ignore
+import binding from 'deltachat-node/binding'
 import { getLogger } from '../../shared/logger'
 
 const log = getLogger('main/deltachat/messagelist')
@@ -14,6 +17,7 @@ import {
   MessageTypeAttachment,
   MessageState,
   Message2,
+  MessageQuote,
 } from '../../shared/shared-types'
 
 import { writeFile } from 'fs-extra'
@@ -21,6 +25,7 @@ import tempy from 'tempy'
 import { getAccountsPath } from '../application-constants'
 import { join } from 'path'
 import { MessageType2 } from '../../shared/shared'
+import { MultiGrid } from 'react-virtualized'
 export default class DCMessageList extends SplitOut {
   sendMessage(
     chatId: number,
@@ -167,10 +172,13 @@ export default class DCMessageList extends SplitOut {
   }
 
   _messageToJson(msg: Message): MessageType {
+
+    const file = msg.getFile()
     const filemime = msg.getFilemime()
     const filename = msg.getFilename()
     const filesize = msg.getFilebytes()
     const viewType = msg.getViewType()
+    console.log(msg)
     const fromId = msg.getFromId()
     const isMe = fromId === C.DC_CONTACT_ID_SELF
     const setupCodeBegin = msg.getSetupcodebegin()
@@ -179,28 +187,66 @@ export default class DCMessageList extends SplitOut {
       | 'outgoing'
       | 'incoming'
 
-    const jsonMSG = msg.toJson()
+      
+    
 
-    const attachment: MessageTypeAttachment = jsonMSG.file && {
-      url: jsonMSG.file,
+    const attachment: MessageTypeAttachment = file && {
+      url: file,
       contentType: convertContentType({
         filemime,
-        viewType: jsonMSG.viewType,
-        file: jsonMSG.file,
+        viewType: viewType as unknown as number,
+        file: file,
       }),
-      fileName: filename || jsonMSG.text,
+      fileName: filename || msg.getText(),
       fileSize: filesizeConverter(filesize),
     }
 
+    let quote: MessageQuote = null
+    const quotedMessage = msg.getQuotedMessage()
+    if (quotedMessage) {
+      const _contact = this._dc.getContact(quotedMessage.getFromId())
+      quote = {
+        messageId: quotedMessage.getId(),
+        text: quotedMessage.getText(),
+        displayName: _contact.getDisplayName(),
+        displayColor: _contact.color
+      }
+    }
+    
+
     return {
       id: msg.getId(),
-      msg: Object.assign(jsonMSG, {
-        sentAt: jsonMSG.timestamp * 1000,
-        receivedAt: jsonMSG.receivedTimestamp * 1000,
+      msg: {
+        chatId: msg.getChatId(),
+        duration: msg.getDuration(),
+        file: msg.getFile(),
+        fromId: msg.getFromId(),
+        id: msg.getId(),
+        quote,
+        receivedTimestamp: msg.getReceivedTimestamp(),
+        sortTimestamp: msg.getSortTimestamp(),
+        text: msg.getText(),
+        timestamp: msg.getTimestamp(),
+        hasLocation: msg.hasLocation(),
+        viewType: binding.dcn_msg_get_viewtype(msg.dc_msg),
+        state: binding.dcn_msg_get_state(msg.dc_msg),
+        hasDeviatingTimestamp: msg.hasDeviatingTimestamp(),
+        showPadlock: msg.getShowpadlock(),
+        summary: msg.getSummary().toJson(),
+        isSetupmessage: msg.isSetupmessage(),
+        isInfo: msg.isInfo(),
+        isForwarded: msg.isForwarded(),
+        dimensions: {
+          height: msg.getHeight(),
+          width: msg.getWidth(),
+        },
+        videochatType: msg.getVideochatType(),
+        videochatUrl: msg.getVideochatUrl(),
+        sentAt: msg.getTimestamp() * 1000,
+        receivedAt: msg.getReceivedTimestamp() * 1000,
         direction,
-        status: jsonMSG.state as MessageState,
         attachment,
-      }),
+      },
       filemime,
       filename,
       filesize,
@@ -313,28 +359,6 @@ export default class DCMessageList extends SplitOut {
     const pathToFile = tempy.file({ extension: 'html' })
     await writeFile(pathToFile, message_html_content, { encoding: 'utf-8' })
     return pathToFile
-  }
-}
-
-//TODO: Delete
-function convertMessageStatus(s: number): string {
-  switch (s) {
-    case C.DC_STATE_IN_FRESH:
-      return 'sent'
-    case C.DC_STATE_OUT_FAILED:
-      return 'error'
-    case C.DC_STATE_IN_SEEN:
-      return 'read'
-    case C.DC_STATE_IN_NOTICED:
-      return 'read'
-    case C.DC_STATE_OUT_DELIVERED:
-      return 'delivered'
-    case C.DC_STATE_OUT_MDN_RCVD:
-      return 'read'
-    case C.DC_STATE_OUT_PENDING:
-      return 'sending'
-    case C.DC_STATE_UNDEFINED:
-      return 'error'
   }
 }
 

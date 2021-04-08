@@ -7,7 +7,7 @@ import { ActionEmitter, KeybindAction } from '../keybindings'
 import { MessageListStore } from './messagelist'
 import { selectChat } from '../components/helpers/ChatMethods'
 
-export const PAGE_SIZE = 10
+export const PAGE_SIZE = 20
 
 class state implements FullChat {
   contactIds: number[]

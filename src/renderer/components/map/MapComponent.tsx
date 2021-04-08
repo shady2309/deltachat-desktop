@@ -401,7 +401,7 @@ export default class MapComponent extends React.Component<
   }
 
   async onMapClick(event: mapboxgl.MapMouseEvent & mapboxgl.EventData) {
-    let message: JsonMessage
+    let message: MessageType['msg']
     const features = this.map.queryRenderedFeatures(event.point)
     const contactFeature = features.find(f => {
       return f.properties.contact !== undefined || f.properties.isPoi
@@ -577,7 +577,7 @@ export default class MapComponent extends React.Component<
   renderPopupMessage(
     contactName: string,
     formattedDate: string,
-    message: JsonMessage
+    message: MessageType['msg']
   ) {
     return ReactDOMServer.renderToStaticMarkup(
       <PopupMessage

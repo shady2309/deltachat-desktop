@@ -20,6 +20,7 @@ import { DeltaBackend, sendMessageParams } from '../../delta-remote'
 import { DraftAttachment } from '../attachment/messageAttachment'
 import { runtime } from '../../runtime'
 import { sendMessage } from '../helpers/ChatMethods'
+import { MessageQuote } from '../../../shared/shared-types'
 
 const log = getLogger('renderer/composer')
 
@@ -95,7 +96,7 @@ const Composer = forwardRef<
           
           text: replaceColonsSafe(message),
           filename: draftState.file,
-          quoteMessageId: draftState.quotedMessageId,
+          quoteMessageId: draftState.quote.messageId,
         }
       )
 
@@ -180,11 +181,10 @@ const Composer = forwardRef<
     return (
       <div className='composer' ref={ref}>
         <div className='upper-bar'>
-          {draftState.quotedText !== null && (
+          {draftState.quote !== null && (
             <div className='attachment-quote-section is-quote'>
               <Quote
-                quotedText={draftState.quotedText}
-                quotedMessageId={draftState.quotedMessageId}
+                quote={draftState.quote}
               />
               <QuoteOrDraftRemoveButton onClick={removeQuote} />
             </div>
@@ -245,11 +245,7 @@ const Composer = forwardRef<
 
 export default Composer
 
-type draftObject = { chatId: number } & Pick<
-  JsonMessage,
-  'text' | 'file' | 'quotedMessageId' | 'quotedText'
-> &
-  Pick<MessageType['msg'], 'attachment' | 'viewType'>
+type draftObject = Pick<MessageType['msg'], 'chatId' | 'text' | 'file' | 'attachment' | 'viewType' | 'quote'>
 
 export function useDraft(
   chatId: number,
@@ -268,8 +264,7 @@ export function useDraft(
     file: null,
     attachment: null,
     viewType: null,
-    quotedMessageId: 0,
-    quotedText: null,
+    quote: null
   })
   const draftRef = useRef<draftObject>()
   draftRef.current = draftState
@@ -289,8 +284,7 @@ export function useDraft(
           file: newDraft.msg.file,
           attachment: newDraft.msg.attachment,
           viewType: newDraft.msg.viewType,
-          quotedMessageId: newDraft.msg.quotedMessageId,
-          quotedText: newDraft.msg.quotedText,
+          quote: newDraft.msg.quote
         }))
         inputRef.current?.setText(newDraft.msg.text)
       }
@@ -303,7 +297,7 @@ export function useDraft(
     await DeltaBackend.call('messageList.setDraft', chatId, {
       text: draft.text,
       file: draft.file,
-      quotedMessageId: draft.quotedMessageId,
+      quotedMessageId: draft.quote.messageId,
     })
 
     if (oldChatId !== chatId) {
@@ -317,8 +311,7 @@ export function useDraft(
         file: newDraft.msg.file,
         attachment: newDraft.msg.attachment,
         viewType: newDraft.msg.viewType,
-        quotedMessageId: newDraft.msg.quotedMessageId,
-        quotedText: newDraft.msg.quotedText,
+        quote: newDraft.msg.quote
       }))
       // don't load text to prevent bugging back
     } else {
@@ -336,7 +329,7 @@ export function useDraft(
   }
 
   const removeQuote = () => {
-    draftRef.current.quotedMessageId = null
+    draftRef.current.quote.messageId = null
     saveDraft()
   }
 
@@ -357,15 +350,14 @@ export function useDraft(
       file: null,
       attachment: null,
       viewType: null,
-      quotedMessageId: 0,
-      quotedText: null,
+      quote: null
     }))
     inputRef.current?.focus()
   }
 
   useEffect(() => {
     window.__setQuoteInDraft = (messageId: number) => {
-      draftRef.current.quotedMessageId = messageId
+      draftRef.current.quote.messageId = messageId
       saveDraft()
       inputRef.current.focus()
     }

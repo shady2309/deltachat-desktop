@@ -126,7 +126,6 @@ export class PageStore extends Store<PageStoreState> {
   }
   
   _calculateIndexesForPageWithMessageIdInMiddle(messageIds: number[], middleMessageIdIndex: number) {
-    const half_page_size = PAGE_SIZE / 2
     let firstMessageIdIndex = Math.max(middleMessageIdIndex - 3, 0)
     const currentDistance = middleMessageIdIndex - firstMessageIdIndex
     let remainingDistance = PAGE_SIZE - currentDistance

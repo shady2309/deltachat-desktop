@@ -20,10 +20,11 @@ import {
   DCContact,
   MessageTypeAttachment,
   MessageState,
+  MessageQuote,
 } from '../../../shared/shared-types'
 import { isGenericAttachment } from '../attachment/Attachment'
 import { useTranslationFunction, ScreenContext } from '../../contexts'
-import { joinCall, openViewProfileDialog } from '../helpers/ChatMethods'
+import { joinCall, jumpToMessage, openViewProfileDialog } from '../helpers/ChatMethods'
 import { C } from 'deltachat-node/dist/constants'
 // import { getLogger } from '../../../shared/logger'
 import { useChatStore2, ChatStoreDispatch } from '../../stores/chat'
@@ -351,7 +352,9 @@ const Message = (props: {
     )
   }
 
-  const hasQuote = message.msg.quotedText !== null
+  const longMessage = /\[.{3}\]$/.test(text)
+
+  const hasQuote = message.msg.quote !== null
 
   return (
     <div
@@ -398,8 +401,7 @@ const Message = (props: {
         >
           {hasQuote && (
             <Quote
-              quotedText={message.msg.quotedText}
-              quotedMessageId={message.msg.quotedMessageId}
+              quote={message.msg.quote}
             />
           )}
           {attachment && !isSetupmessage && (
@@ -442,38 +444,23 @@ const Message = (props: {
 export default Message
 
 export const Quote = ({
-  quotedText,
-  quotedMessageId,
+  quote
 }: {
-  quotedText: string | null
-  quotedMessageId: number
+  quote: MessageQuote
 }) => {
-  const [message, setMessage] = useState<MessageType>(null)
-
-  useEffect(() => {
-    if (quotedMessageId) {
-      DeltaBackend.call('messageList.getMessage', quotedMessageId).then(msg => {
-        if (msg.msg !== null) {
-          setMessage(msg as MessageType)
-        }
-      })
-    }
-  }, [quotedMessageId])
-
   return (
     <div
       className='quote has-message'
-      style={{ borderLeftColor: message && message.contact.color }}
+      style={{ borderLeftColor: quote.displayColor }}
+      onClick={() => jumpToMessage(quote.messageId)}
     >
       <div
         className='quote-author'
-        style={{ color: message && message.contact.color }}
+        style={{ color: quote.displayColor }}
       >
-        {message && message.contact.displayName}
+        {quote.displayName}
       </div>
-      <div className='quoted-text'>
-        <MessageBody text={quotedText} />
-      </div>
+      <p>{quote.text}</p>
     </div>
   )
 }
