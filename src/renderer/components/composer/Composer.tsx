@@ -96,7 +96,7 @@ const Composer = forwardRef<
           
           text: replaceColonsSafe(message),
           filename: draftState.file,
-          quoteMessageId: draftState.quote.messageId,
+          quoteMessageId: draftState.quote?.messageId,
         }
       )
 
@@ -297,7 +297,7 @@ export function useDraft(
     await DeltaBackend.call('messageList.setDraft', chatId, {
       text: draft.text,
       file: draft.file,
-      quotedMessageId: draft.quote.messageId,
+      quotedMessageId: draft.quote?.messageId,
     })
 
     if (oldChatId !== chatId) {
@@ -329,7 +329,7 @@ export function useDraft(
   }
 
   const removeQuote = () => {
-    draftRef.current.quote.messageId = null
+    draftRef.current.quote = null
     saveDraft()
   }
 
@@ -356,8 +356,15 @@ export function useDraft(
   }
 
   useEffect(() => {
-    window.__setQuoteInDraft = (messageId: number) => {
-      draftRef.current.quote.messageId = messageId
+    window.__setQuoteInDraft = async (messageId: number) => {
+      const message = await DeltaBackend.call('messageList.getMessage', messageId)
+      const contact = await DeltaBackend.call('contacts.getContact', message.msg.fromId)
+      draftRef.current.quote = {
+        messageId,
+        text: message.msg.text,
+        displayName: contact.displayName,
+        displayColor: contact.color
+      }
       saveDraft()
       inputRef.current.focus()
     }
