@@ -397,25 +397,23 @@ export class PageStore extends Store<PageStoreState> {
 
   }
 
-  _findPageWithMessageId(state: PageStoreState, messageId: number, iterateFromback?: boolean): [string, number] {
+  _findPageWithMessageId(state: PageStoreState, messageId: number, iterateFromback?: boolean): {pageKey: string, indexOnPage: number, messageIdIndex: number} {
     let pageKey: string = null
     let indexOnPage: number = -1
     
     const messageIdIndex = this._indexOfMessageId(state, messageId, iterateFromback)
-    if (messageIdIndex === -1) {
-      return [pageKey, indexOnPage]
-    }
-
-    for (const currentPageKey of state.pageOrdering) {
-      const currentPage = state.pages[currentPageKey]
-      if (messageIdIndex >= currentPage.firstMessageIdIndex && messageIdIndex <= currentPage.lastMessageIdIndex) {
-        pageKey = currentPageKey
-        indexOnPage = currentPage.messageIds.indexOf(messageId)
-        break
+    if (messageIdIndex !== -1) {
+      for (const currentPageKey of state.pageOrdering) {
+        const currentPage = state.pages[currentPageKey]
+        if (messageIdIndex >= currentPage.firstMessageIdIndex && messageIdIndex <= currentPage.lastMessageIdIndex) {
+          pageKey = currentPageKey
+          indexOnPage = currentPage.messageIds.indexOf(messageId)
+          break
+        }
       }
     }
 
-    return [pageKey, indexOnPage]
+    return {pageKey, indexOnPage, messageIdIndex}
   }
   
   _updateMessage(state: PageStoreState, pageKey: string, indexOnPage: number, updatedMessage: Message2): PageStoreState {
@@ -428,7 +426,7 @@ export class PageStore extends Store<PageStoreState> {
           messages: [
             ...state.pages[pageKey].messages.slice(0, indexOnPage),
             updatedMessage,
-            ...state.pages[pageKey].messages.slice(indexOnPage)
+            ...state.pages[pageKey].messages.slice(indexOnPage + 1)
           ]
         }
       }
@@ -442,7 +440,7 @@ export class PageStore extends Store<PageStoreState> {
         return
 
       }
-      const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId, true)
+      const {pageKey, indexOnPage} = this._findPageWithMessageId(state, messageId, true)
 
       if(pageKey === null) {
         log.debug(`onMessageDelivered: Couldn't find messageId in any shown pages. Returning`)
@@ -472,7 +470,7 @@ export class PageStore extends Store<PageStoreState> {
         return
         
       }
-      const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId, true)
+      const {pageKey, indexOnPage} = this._findPageWithMessageId(state, messageId, true)
 
       if(pageKey === null) {
         log.debug(`onMessageFailed: Couldn't find messageId in any shown pages. Returning`)
@@ -531,7 +529,7 @@ export class PageStore extends Store<PageStoreState> {
         )
         return
       }
-      const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId, true)
+      const {pageKey, indexOnPage} = this._findPageWithMessageId(state, messageId, true)
 
       if(pageKey === null) {
         log.debug(`onMessageRead: Couldn't find messageId in any shown pages. Returning`)
@@ -572,7 +570,7 @@ export class PageStore extends Store<PageStoreState> {
       let update = false
       let updatedState = state
       for (let messageId of messageIds) {
-        const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId, true)
+        const {pageKey, indexOnPage} = this._findPageWithMessageId(state, messageId, true)
         console.log(messageId, pageKey, indexOnPage)
 
         if(pageKey === null) {
@@ -610,7 +608,7 @@ export class PageStore extends Store<PageStoreState> {
   deleteMessage(messageId: number) {
     this.dispatch('deleteMessage', async (state, setState) => {
         log.debug(`deleteMessage: deleting message with id ${messageId}`)
-        const [pageKey, indexOnPage] = this._findPageWithMessageId(state, messageId, true)
+        const {pageKey, indexOnPage, messageIdIndex} = this._findPageWithMessageId(state, messageId, true)
 
         DeltaBackend.call('messageList.deleteMessage', messageId)
         if (pageKey === null) {
@@ -620,15 +618,23 @@ export class PageStore extends Store<PageStoreState> {
 
         setState({
           ...state,
-          messageIds: state.messageIds.filter(mId => mId !== messageId),
+          messageIds: [
+            ...state.messageIds.slice(0, messageIdIndex),
+            null,
+            ...state.messageIds.slice(messageIdIndex + 1)
+          ],
           pages: {
             ...state.pages,
             [pageKey]: {
               ...state.pages[pageKey],
-              messageIds: state.pages[pageKey].messageIds.filter(mId => mId !== messageId),
+              messageIds: [
+                ...state.pages[pageKey].messageIds.slice(0, indexOnPage),
+                null,
+                ...state.pages[pageKey].messageIds.slice(indexOnPage + 1)
+              ],
               messages: {
                 ...state.pages[pageKey].messages,
-                [messageId]: undefined
+                [indexOnPage]: null
               }
             }
           } 

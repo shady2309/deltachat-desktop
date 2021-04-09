@@ -443,6 +443,7 @@ export function MessagePage(
 			console.log(page.key, messageId, index)
 			const messageIndex = firstMessageIdIndex + index
 			const message: Message2 = page.messages[index]
+			if (message === null) return null
 			const messageKey = calculateMessageKey(page.key, messageId, messageIndex)
 			return mapFunction(messageKey, messageId, messageIndex, message)
 
