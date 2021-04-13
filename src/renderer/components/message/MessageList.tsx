@@ -10,6 +10,7 @@ import { ChatStoreState } from '../../stores/chat';
 import { C } from 'deltachat-node/dist/constants'
 import { jumpToMessage } from '../helpers/ChatMethods';
 import { ipcBackend } from '../../ipc';
+import { DeltaBackend } from '../../delta-remote';
 
 const log = getLogger('renderer/message/MessageList')
 
@@ -79,6 +80,34 @@ const scrollBeforePage = (messageListRef: React.MutableRefObject<any>, pageKey: 
 	} else {
 		messageListRef.current.scrollTop = pageOffsetTop - messageListRef.current.clientHeight
 	}	 
+}
+
+const mathInBetween = (windowLow: number, windowHigh: number, value: number) => {
+	return (value >= windowLow && value <= windowHigh)
+}
+
+function* messagesInView (messageListRef: React.MutableRefObject<HTMLElement>) {
+	const messageElements = document.querySelector('#message-list').querySelectorAll('ul')
+	const scrollTop = messageListRef.current.scrollTop
+	const messageListClientHeight = messageListRef.current.clientHeight
+	const messageListOffsetTop = scrollTop
+	const messageListOffsetBottom = messageListOffsetTop + messageListClientHeight
+	for (let messageElement of messageElements) {
+		const messageOffsetTop = messageElement.offsetTop
+		const messageOffsetBottom = messageOffsetTop + messageElement.clientHeight
+	
+		if (mathInBetween(messageListOffsetTop, messageListOffsetBottom, messageOffsetTop)
+			|| mathInBetween(messageListOffsetTop, messageListOffsetBottom, messageOffsetBottom)) {
+			yield {
+				messageListClientHeight,
+				messageListOffsetTop,
+				messageListOffsetBottom,
+				messageElement,
+				messageOffsetTop,
+				messageOffsetBottom
+			}
+		}
+	}
 }
 
 const MessageList = React.memo(function MessageList({
@@ -259,6 +288,14 @@ const MessageList = React.memo(function MessageList({
 				},
 			])
 		  }
+		} else if (action.type === 'RESTORE_SCROLL_POSITION') {
+		  	if (action.id !== MessageListStore.state.chatId) {
+			  log.debug(`RESTORE_SCROLL_POSITION: action id mismatches state.chatId. Returning.`)
+			  return
+			}
+			messageListRef.current.scrollTop = action.payload
+			log.debug(`RESTORE_SCROLL_POSITION: restored scrollPosition to ${action.payload}`)
+			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
 		}
 	}
 
@@ -339,20 +376,33 @@ const MessageList = React.memo(function MessageList({
 		})
 	}
 
-	const onMsgsChanged = () => {
+	const onMsgsChanged = async () => {
 		// Find first message displayed on screen
-		const messageElements = document.querySelector('#message-list').querySelectorAll('ul')
-		const scrollTop = messageListRef.current.scrollTop
-		const clientHeight = messageListRef.current.clientHeight
-		const messageIdsInView = []
-		for (let messageElement of messageElements) {
-			const offsetTop = messageElement.offsetTop
-			const offsetBottom = offsetTop + messageElement.clientHeight
+		const chatId = MessageListStore.state.chatId
+		const messageIds = await DeltaBackend.call('messageList.getMessageIds', MessageListStore.state.chatId)
 		
-			//if (offsetTop >= scrollTop || offsetBottom <= scrollTop + clientHeight) {
-				console.log(messageElement, scrollTop, clientHeight, offsetTop, offsetBottom)
-			//}		
+		let firstMessageIndex = -1
+		let restoreScrollPosition
+		for (let {messageElement, messageListOffsetTop, messageOffsetTop} of messagesInView(messageListRef)) {
+			const { messageId } = parseMessageKey(messageElement.getAttribute('id'))
+			
+			console.log(messageElement, messageIds, messageId)
+
+			const messageIndex = messageIds.indexOf(messageId)
+			if (messageIndex === -1) continue
+
+			firstMessageIndex = messageIndex
+			restoreScrollPosition = Math.abs(messageOffsetTop - messageListOffsetTop)
+			break
 		}
+
+		if (firstMessageIndex === -1) {
+			log.error('No message in view is in changed messageIds. Loading chat without scroll restore.')
+			MessageListStore.selectChat(MessageListStore.state.chatId)
+			return
+		}
+
+		MessageListStore.refresh(chatId, messageIds, firstMessageIndex, restoreScrollPosition)
 	}
 
 	useEffect(() => {
@@ -445,7 +495,19 @@ export default MessageList
 
 export function calculateMessageKey(pageKey: string, messageId: number, messageIndex: number) {
 	return pageKey + '-' + messageId + '-' + messageIndex
+}
 
+export function parseMessageKey(messageKey: string) {
+	const splittedMessageKey = messageKey.split('-')
+	console.log(splittedMessageKey)
+	if (splittedMessageKey[0] !== 'page' && splittedMessageKey.length === 5	) {
+		throw new Error('Expected a proper messageKey')
+	}
+	return {
+		pageKey: `page-${splittedMessageKey[1]}-${splittedMessageKey[2]}`,
+		messageId: Number.parseInt(splittedMessageKey[3]),
+		messageIndex: Number.parseInt(splittedMessageKey[4])
+	}
 }
 
 export function MessagePage(
