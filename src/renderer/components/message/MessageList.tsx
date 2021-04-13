@@ -9,6 +9,7 @@ import { MessageType2 } from '../../../shared/shared';
 import { ChatStoreState } from '../../stores/chat';
 import { C } from 'deltachat-node/dist/constants'
 import { jumpToMessage } from '../helpers/ChatMethods';
+import { ipcBackend } from '../../ipc';
 
 const log = getLogger('renderer/message/MessageList')
 
@@ -338,6 +339,21 @@ const MessageList = React.memo(function MessageList({
 		})
 	}
 
+	const onMsgsChanged = () => {
+		// Find first message displayed on screen
+		const messageElements = document.querySelector('#message-list').querySelectorAll('ul')
+		const scrollTop = messageListRef.current.scrollTop
+		const clientHeight = messageListRef.current.clientHeight
+		const messageIdsInView = []
+		for (let messageElement of messageElements) {
+			const offsetTop = messageElement.offsetTop
+			const offsetBottom = offsetTop + messageElement.clientHeight
+		
+			//if (offsetTop >= scrollTop || offsetBottom <= scrollTop + clientHeight) {
+				console.log(messageElement, scrollTop, clientHeight, offsetTop, offsetBottom)
+			//}		
+		}
+	}
 
 	useEffect(() => {
 		console.log('Rerendering MessageList')
@@ -359,11 +375,16 @@ const MessageList = React.memo(function MessageList({
 			rootMargin: '0px',
 			threshold: [0, 1]
 		});
+		
+		ipcBackend.on('DC_EVENT_MSGS_CHANGED', onMsgsChanged)
+		
+		;(window as unknown as any).onMessagesChanged = onMsgsChanged
 
 		return () => {
 			onMessageListTopObserver.disconnect()
 			onMessageListBottomObserver.disconnect()
 			unreadMessageInViewIntersectionObserver.current?.disconnect()
+			ipcBackend.removeListener('DC_EVENT_MSGS_CHANGED', onMsgsChanged)
 		}
 	}, [])
 

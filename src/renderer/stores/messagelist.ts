@@ -604,6 +604,14 @@ export class PageStore extends Store<PageStoreState> {
       }
     })
   }
+
+  onMessagesChanged(chatId: number, messageId: number) {
+    this.dispatch('onMessagesChanged', async (state, setState) => {
+      log.debug(`onMessagesChanged: chatId: ${chatId} messageId: ${messageId}`)
+      //this.pushLayoutEffect({type:'INCOMING_MESSAGES', payload: messageIdsIncoming.length, id: chatId})
+
+    })
+  }
   
   deleteMessage(messageId: number) {
     this.dispatch('deleteMessage', async (state, setState) => {
@@ -658,6 +666,10 @@ export class PageStore extends Store<PageStoreState> {
     
     ipcBackend.on('DC_EVENT_MSG_READ', (_, [chatId, messageId]) => {
       this.onMessageRead(chatId, messageId)
+    })
+
+    ipcBackend.on('DC_EVENT_MSGS_CHANGED', (_, [chatId, _messageId]) => {
+      this.onMessagesChanged(chatId, _messageId)
     })
   }
 }

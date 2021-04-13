@@ -198,6 +198,8 @@
 }
 
 .message.outgoing {
+  margin-left: auto;
+  justify-content: flex-end;
   float: right;
   margin-right: 0;
   margin-left: 32px;

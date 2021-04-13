@@ -69,9 +69,13 @@
   }
 
   ul {
+    display: flex;
+    flex-direction: column; 
     list-style: none;
     min-width: 200px;
-
+    box-sizing: border-box;
+    margin: 0px;
+    
     li {
       margin-bottom: 10px;
       min-width: 200px;
