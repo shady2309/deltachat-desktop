@@ -129,14 +129,14 @@ const MessageList = React.memo(function MessageList({
 
 			if(!lastPage) {
 				log.debug(`SCROLL_BEFORE_LAST_PAGE: lastPage is null, returning`)
-				setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+				setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 				return
 			}
 			
 			log.debug(`SCROLL_BEFORE_LAST_PAGE lastPage ${lastPage.key}`)		  
 
 			//scrollBeforePage(messageListRef, lastPage.key)
-			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 		})
 	  }
 	}
@@ -150,17 +150,16 @@ const MessageList = React.memo(function MessageList({
 		)
 		
 		messageListRef.current.scrollTop = scrollHeight
-		console.debug(messageListWrapperRef)
 		const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
 		log.debug(`SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: messageListWrapperHeight: ${messageListWrapperHeight} scrollHeight: ${scrollHeight}`)
 		if (scrollHeight <= messageListWrapperHeight) {
-			MessageListStore.doneCurrentlyLoadingPage()
+			MessageListStore.currentlyLoadingUNLOCK()
 			MessageListStore.loadPageBefore([], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {}, id: messageListStore.chatId}
 			}])
 		} else {
-			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 		}
 	  } else if (action.type === 'SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE') {
 		const { pageKey } = action.payload
@@ -175,7 +174,7 @@ const MessageList = React.memo(function MessageList({
 			log.warn(
 				`SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE pageElement is null, returning`
 			)
-			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 			return
 		}
 		pageElement.scrollIntoView(true)
@@ -184,13 +183,12 @@ const MessageList = React.memo(function MessageList({
 			log.warn(
 				`SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE firstChild is null, returning`
 			)
-			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 			return
 		}
 		// TODO: Implement check to load more
-		console.debug(firstChild)
 		firstChild.setAttribute('style', 'background-color: yellow')
-		setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+		setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 	  } else if (action.type === 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE') {
 		const { pageKey, messageIdIndex } = action.payload
 		const pageElement = document.querySelector('#' + pageKey)
@@ -198,23 +196,20 @@ const MessageList = React.memo(function MessageList({
 			log.warn(
 				`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE pageElement is null, returning`
 			)
-			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 			return
 		}
 
-		console.debug(pageElement)
 		const messageKey = calculateMessageKey(pageKey, messageListStore.messageIds[messageIdIndex], messageIdIndex)
 
-		console.log(messageKey)
 		const messageElement = pageElement.querySelector('#' + messageKey)
 		if(!messageElement) {
 			log.warn(
 				`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE messageElement is null, returning`
 			)
-			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 			return
 		}
-		console.debug(messageElement)
 		//messageElement.setAttribute('style', 'background-color: yellow')
 
 		let scrollTop = messageListRef.current.scrollTop
@@ -224,21 +219,21 @@ const MessageList = React.memo(function MessageList({
 		if (scrollTop === 0 && MessageListStore.canLoadPageBefore(pageKey)) {	
 			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: scrollTop === 0, load page before`)
 
-			MessageListStore.doneCurrentlyLoadingPage()
+			MessageListStore.currentlyLoadingUNLOCK()
 			MessageListStore.loadPageBefore(action.id, [], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: action.payload, id: messageListStore.chatId}
 			}])
 		} else if ((scrollHeight - scrollTop) <= clientHeight && MessageListStore.canLoadPageAfter(pageKey)) {
 			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: ((scrollHeight - scrollTop) <= clientHeight) === true, load page after`)
-			MessageListStore.doneCurrentlyLoadingPage()
+			MessageListStore.currentlyLoadingUNLOCK()
 			MessageListStore.loadPageAfter(action.id, [], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: action.payload, id: messageListStore.chatId}
 			}])
 		} else {
 			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE no need to load anything`)
-			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 		}
 
 	  } else if (action.type === 'SCROLL_BEFORE_FIRST_PAGE') {
@@ -247,12 +242,12 @@ const MessageList = React.memo(function MessageList({
 
 		if(!beforeFirstPage) {
 			log.debug(`SCROLL_BEFORE_FIRST_PAGE: beforeLastPage is null, returning`)
-			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 			return
 		}
 
 		document.querySelector('#' + beforeFirstPage.key).scrollIntoView()
-		setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+		setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 	  } else if (action.type === 'INCOMING_MESSAGES') {
 		  if (action.id !== MessageListStore.state.chatId) {
 			  log.debug(`INCOMING_MESSAGES: action id mismatches state.chatId. Returning.`)
@@ -295,7 +290,7 @@ const MessageList = React.memo(function MessageList({
 			}
 			messageListRef.current.scrollTop = action.payload
 			log.debug(`RESTORE_SCROLL_POSITION: restored scrollPosition to ${action.payload}`)
-			setTimeout(() => MessageListStore.doneCurrentlyLoadingPage())
+			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 		}
 	}
 
@@ -378,6 +373,11 @@ const MessageList = React.memo(function MessageList({
 
 	const onMsgsChanged = async () => {
 		// Find first message displayed on screen
+		if (MessageListStore.isCurrentlyLoadingPage() === true) {
+			log.debug('onMsgsChanged: Currently loading page, returning')
+			return
+		}
+
 		const chatId = MessageListStore.state.chatId
 		const messageIds = await DeltaBackend.call('messageList.getMessageIds', MessageListStore.state.chatId)
 		
@@ -386,8 +386,6 @@ const MessageList = React.memo(function MessageList({
 		for (let {messageElement, messageListOffsetTop, messageOffsetTop} of messagesInView(messageListRef)) {
 			const { messageId } = parseMessageKey(messageElement.getAttribute('id'))
 			
-			console.log(messageElement, messageIds, messageId)
-
 			const messageIndex = messageIds.indexOf(messageId)
 			if (messageIndex === -1) continue
 
@@ -397,17 +395,25 @@ const MessageList = React.memo(function MessageList({
 		}
 
 		if (firstMessageIndex === -1) {
-			log.error('No message in view is in changed messageIds. Loading chat without scroll restore.')
+			log.error('onMsgsChanged: No message in view is in changed messageIds. Loading chat without scroll restore.')
 			MessageListStore.selectChat(MessageListStore.state.chatId)
 			return
 		}
 
-		MessageListStore.refresh(chatId, messageIds, firstMessageIndex, restoreScrollPosition)
+		MessageListStore.refresh(chatId, messageIds, firstMessageIndex, [
+			{action: {type: 'RESTORE_SCROLL_POSITION', payload: restoreScrollPosition, id: chatId}, isLayoutEffect: true}
+		])
+	}
+
+	const onIncomingMessage = async (_event: any, [chatId, messageId]: [number, number]) => {
+		if (chatId !== MessageListStore.state.chatId) {
+			log.debug('onMsgsChanged: Currently loading page, returning')
+			return
+		}
+		onMsgsChanged()			
 	}
 
 	useEffect(() => {
-		console.log('Rerendering MessageList')
-		
 		let onMessageListTopObserver = new IntersectionObserver(onMessageListTop, {
 			root: null,
 			rootMargin: '80px',
@@ -427,6 +433,7 @@ const MessageList = React.memo(function MessageList({
 		});
 		
 		ipcBackend.on('DC_EVENT_MSGS_CHANGED', onMsgsChanged)
+		ipcBackend.on('DC_EVENT_INCOMING_MSG', onIncomingMessage)
 		
 		;(window as unknown as any).onMessagesChanged = onMsgsChanged
 
@@ -435,9 +442,10 @@ const MessageList = React.memo(function MessageList({
 			onMessageListBottomObserver.disconnect()
 			unreadMessageInViewIntersectionObserver.current?.disconnect()
 			ipcBackend.removeListener('DC_EVENT_MSGS_CHANGED', onMsgsChanged)
+			ipcBackend.removeListener('DC_EVENT_INCOMING_MSG', onIncomingMessage)
 		}
 	}, [])
-
+	
 	const iterateMessages = (mapFunction: (key: string, messageId: MessageId, messageIndex: number, message: Message2) => JSX.Element) => {
 		return messageListStore.pageOrdering.map((pageKey: string) => {
 			return <MessagePage key={pageKey} page={messageListStore.pages[pageKey]} mapFunction={mapFunction}/>
@@ -450,7 +458,6 @@ const MessageList = React.memo(function MessageList({
 			<div id='message-list' ref={messageListRef}>   
 				<div key='message-list-top' id='message-list-top' ref={messageListTopRef} />
 				{iterateMessages((key, messageId, messageIndex, message) => {
-					console.log('iterator', key, messageId)
 					if (message.type === MessageType2.DayMarker) {
 						return (
 						  <ul key={key} id={key}>
@@ -499,7 +506,6 @@ export function calculateMessageKey(pageKey: string, messageId: number, messageI
 
 export function parseMessageKey(messageKey: string) {
 	const splittedMessageKey = messageKey.split('-')
-	console.log(splittedMessageKey)
 	if (splittedMessageKey[0] !== 'page' && splittedMessageKey.length === 5	) {
 		throw new Error('Expected a proper messageKey')
 	}
@@ -523,7 +529,6 @@ export function MessagePage(
 		<div className={'message-list-page'} id={page.key} key={page.key}>
 		  
 		  {page.messageIds.map((messageId: MessageId, index) => {
-			console.log(page.key, messageId, index)
 			const messageIndex = firstMessageIdIndex + index
 			const message: Message2 = page.messages[index]
 			if (message === null) return null

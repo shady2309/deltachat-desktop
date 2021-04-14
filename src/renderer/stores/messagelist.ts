@@ -8,7 +8,7 @@ import { Action, Store } from "./store2"
 export const PAGE_SIZE = 20
 
 export type MessageId = number
-const log = getLogger('renderer/message/MessageList')
+const log = getLogger('renderer/stores/MessageListStore')
 
 
 export type MessageIds = Array<MessageId>
@@ -79,7 +79,6 @@ export class PageStore extends Store<PageStoreState> {
 
   selectChat(chatId: number) {
     return this.dispatch('selectChat', async (state: PageStoreState, setState) => {
-      
       const unreadMessageIds = await DeltaBackend.call('messageList.getUnreadMessageIds', chatId)
       const firstUnreadMessageId = unreadMessageIds.length > 0 ? unreadMessageIds[0] : -1
       const marker1MessageId = firstUnreadMessageId || 0
@@ -143,6 +142,7 @@ export class PageStore extends Store<PageStoreState> {
   async jumpToMessage(chatId: number, messageId: number) {
     return this.dispatch('jumpToMessage', async (state: PageStoreState, setState) => {
       log.debug(`jumpToMessage: chatId: ${chatId} messageId: ${messageId}`)
+      this.currentlyLoadingLOCK()
       const unreadMessageIds = await DeltaBackend.call('messageList.getUnreadMessageIds', chatId)
       const marker1MessageId = unreadMessageIds[0] || 0
       const marker1MessageCount = unreadMessageIds.length
@@ -194,6 +194,7 @@ export class PageStore extends Store<PageStoreState> {
         log.debug('loadPageBefore: no more messages, returning')
         return
       }
+      this.currentlyLoadingLOCK()
 
       const lastMessageIndexOnPageBefore = Math.min(firstMessageIdIndexOnFirstPage + PAGE_SIZE, firstPage.firstMessageIdIndex - 1)
       const tmp = await this._loadPageWithFirstMessageIndex(state.chatId, state.messageIds, firstMessageIdIndexOnPageBefore, lastMessageIndexOnPageBefore, this.state.unreadMessageIds[0] || 0)  
@@ -229,6 +230,7 @@ export class PageStore extends Store<PageStoreState> {
         return
       }
       
+
       const lastPage = state.pages[state.pageOrdering[state.pageOrdering.length - 1]]
       
       if(!lastPage) {
@@ -244,6 +246,7 @@ export class PageStore extends Store<PageStoreState> {
         log.debug('loadPageAfter: no more messages, returning')
         return
       }
+      this.currentlyLoadingLOCK()
       
       const lastMessageIndexOnPageAfter = Math.min(firstMessageIdIndexOnPageAfter + PAGE_SIZE, state.messageIds.length - 1)
       log.debug(`loadPageAfter: loading page with firstMessageIdIndexOnPageAfter: ${firstMessageIdIndexOnPageAfter} lastMessageIndexOnPageAfter: ${lastMessageIndexOnPageAfter}`)
@@ -268,20 +271,26 @@ export class PageStore extends Store<PageStoreState> {
     return this.currentlyLoadingPage
   }
   
-  doneCurrentlyLoadingPage() {
+  currentlyLoadingLOCK() {
+    return
+    if (this.currentlyLoadingPage === true) {
+      throw new Error(`currentlyLoadingLOCK: we are already loading a page!`)
+    }
+    log.debug('currentlyLoadingLOCK: LOCKING')
+    this.currentlyLoadingPage = true
+  }
+  
+  currentlyLoadingUNLOCK() {
+    return
+    log.debug('currentlyLoadingUNLOCK: UNLOCKING')
     this.currentlyLoadingPage = false
   }
+  
   async _loadPageWithFirstMessageIndex(chatId: number, messageIds: number[], startMessageIdIndex: number, endMessageIdIndex: number, marker1Before: number) : Promise<{pages: PageStoreState['pages'], pageOrdering: PageStoreState['pageOrdering']}> {
     if (startMessageIdIndex < 0 || startMessageIdIndex >= messageIds.length || endMessageIdIndex < startMessageIdIndex || endMessageIdIndex >= messageIds.length) {
       throw new Error(`_loadPageWithFirstMessage: pageFirstMessageIdIndex out of bound, returning startMessageIdIndex: ${startMessageIdIndex} endMessageIdIndex: ${endMessageIdIndex}`)
     }
     const messageId = messageIds[startMessageIdIndex]
-
-    if (this.currentlyLoadingPage === true) {
-      throw new Error(`_loadPageWithFirstMessage: we are already loading a page, returning`)
-    }
-
-    this.currentlyLoadingPage = true
 
     if (startMessageIdIndex === -1) {
       throw new Error(`_loadPageWithFirstMessage: messageId ${messageId} is not in messageIds`)
@@ -338,14 +347,31 @@ export class PageStore extends Store<PageStoreState> {
   
   sendMessage(chatId: number, messageParams: sendMessageParams) {
     this.dispatch('sendMessage', async (state, setState) => {
-      this.isCurrentlyLoadingPage()
-      
-      await DeltaBackend.call(
+
+      this.currentlyLoadingLOCK()
+      const [messageId, message] = await DeltaBackend.call(
         'messageList.sendMessage',
         chatId,
         messageParams
       )
-      this.pushLayoutEffect({type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: null, id: state.chatId}, false)
+
+      if (chatId !== state.chatId) return
+      
+      if (messageId === 0) {
+        // Workaround for failed messages
+        this.currentlyLoadingUNLOCK()
+        return
+      }
+
+      const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId)
+
+      const lastMessageIndex = messageIds.length - 1
+      const firstMessageIndex = Math.max(lastMessageIndex - PAGE_SIZE, 0)
+      
+      
+      MessageListStore.refresh(chatId, messageIds, firstMessageIndex, [
+        {action: {type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: null, id: state.chatId}, isLayoutEffect: true}
+      ], true)
     })
   }
   
@@ -397,12 +423,14 @@ export class PageStore extends Store<PageStoreState> {
     }
   }
   
-  refresh(chatId: number, messageIds: number[], firstMessageIndex: number, scrollRestorePosition: number) {
+  refresh(chatId: number, messageIds: number[], firstMessageIndex: number, dispatchesAfter?: DispatchesAfter, dontLock?: boolean) {
     this.dispatch('refresh', async (state, setState) => {
       if (chatId !== state.chatId) {
         log.debug(`refresh: chatId doesn't equal currently selected chat. Returning.`)
         return
       }
+      
+      if (!dontLock ) this.currentlyLoadingLOCK()
 
       const unreadMessageIds = await DeltaBackend.call('messageList.getUnreadMessageIds', chatId)
       const firstUnreadMessageId = unreadMessageIds.length > 0 ? unreadMessageIds[0] : -1
@@ -412,7 +440,7 @@ export class PageStore extends Store<PageStoreState> {
       const lastMessageIndex = Math.min(firstMessageIndex + PAGE_SIZE, messageIds.length - 1)
       const { pages, pageOrdering } = await this._loadPageWithFirstMessageIndex(chatId, messageIds, firstMessageIndex, lastMessageIndex, marker1MessageId)
       
-      this.pushLayoutEffect({type: 'RESTORE_SCROLL_POSITION', payload: scrollRestorePosition, id: chatId})
+      this.dispatchesAfter(dispatchesAfter)
 
       setState({
         pages,
@@ -483,34 +511,6 @@ export class PageStore extends Store<PageStoreState> {
           }
         }
       }))
-    })
-  }
-
-  onIncomingMessage(chatId: number) {
-    this.dispatch('onIncomingMessage', async (state, setState) => {
-
-      if (chatId !== state.chatId) {
-        log.debug(
-          `onIncomingMessage: chatId of event (${chatId}) doesn't match id of selected chat (${state.chatId}). Returning.`
-        )
-        return
-      }
-      
-
-      const messageIds = <number[]>(
-        await DeltaBackend.call('messageList.getMessageIds', chatId)
-      )
-      
-      const messageIdsIncoming = messageIds.filter(
-        x => !state.messageIds.includes(x)
-      )
-      
-      this.pushLayoutEffect({type:'INCOMING_MESSAGES', payload: messageIdsIncoming.length, id: chatId})
-      
-      setState({
-        ...state,
-        messageIds
-      })
     })
   }
 
@@ -624,16 +624,8 @@ export class PageStore extends Store<PageStoreState> {
       this.onMessageFailed(chatId, messageId)
     })
 
-    ipcBackend.on('DC_EVENT_INCOMING_MSG', (_, [chatId, _messageId]) => {
-      this.onIncomingMessage(chatId)
-    })
-    
     ipcBackend.on('DC_EVENT_MSG_READ', (_, [chatId, messageId]) => {
       this.onMessageRead(chatId, messageId)
-    })
-
-    ipcBackend.on('DC_EVENT_MSGS_CHANGED', (_, [chatId, _messageId]) => {
-      this.onMessagesChanged(chatId, _messageId)
     })
   }
 }

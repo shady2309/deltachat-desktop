@@ -27,10 +27,33 @@ export interface StoreDispatchSetState<S> {
   (state: S) : Promise<void>
 }
 
+export interface OnDispatchParameters {
+  currentlyDispatchedCounter: number,
+  incrementingDispatchedCounter: number,
+  name: string
+}
+
+export interface OnDispatchCheck {
+  (checkState: OnDispatchParameters): boolean
+}
+
+export interface BeforeSetStateParameters {
+  currentlyDispatchedCounter: number,
+  incrementingDispatchedCounter: number,
+  yourIncrementingDispatchedCounter: number,
+  name: string
+}
+
+export interface BeforeSetStateCheck {
+  (checkState: BeforeSetStateParameters): boolean
+}
+
 export class Store<S> {
   private listeners: StoreListener<S>[] = []
   private effects: {[key: string]: EffectInterface<S>} = {}
   private _log: ReturnType<typeof getLogger>
+  private currentlyDispatchedCounter = 0
+  private incrementingDispatchedCounter = 0
   
   constructor(public state: S, name?: string) {
     if (!name) name = 'Store2'
@@ -49,10 +72,31 @@ export class Store<S> {
     return this.state
   }
 
-  async dispatch(name: String, effect: (state: S, setState: StoreDispatchSetState<S>) => Promise<void>): Promise<void> {
+  async dispatch(name: string, effect: (state: S, setState: StoreDispatchSetState<S>) => Promise<void>, onDispatchCheck?: OnDispatchCheck, beforeSetStateCheck?: BeforeSetStateCheck): Promise<void> {
     this.log.debug('DISPATCH of type', name)
     const self = this
     
+    if (onDispatchCheck) {
+      const shouldDispatch = onDispatchCheck({
+        currentlyDispatchedCounter: this.currentlyDispatchedCounter,
+        incrementingDispatchedCounter: this.incrementingDispatchedCounter,
+        name
+      })
+
+      if (!shouldDispatch) {
+        this.log.debug(
+          `DISPATCHING of "${name}" aborted. onDispatchCheck was false.`,
+        )
+        return
+      }
+    }
+    
+    let yourIncrementingDispatchedCounter = this.incrementingDispatchedCounter++
+    if (yourIncrementingDispatchedCounter >= Number.MAX_SAFE_INTEGER - 1) {
+      yourIncrementingDispatchedCounter = this.incrementingDispatchedCounter = 0
+    }
+    this.currentlyDispatchedCounter++
+
     const setState = async (updatedState: S) => {
       if (updatedState === this.state) {
         this.log.debug(
@@ -66,12 +110,30 @@ export class Store<S> {
         'After:',
         updatedState
       )
+
+      if (beforeSetStateCheck) {
+        const shouldSetState = beforeSetStateCheck({
+          currentlyDispatchedCounter: self.currentlyDispatchedCounter,
+          incrementingDispatchedCounter: self.incrementingDispatchedCounter,
+          yourIncrementingDispatchedCounter,
+          name
+        })
+        
+        if(!shouldSetState) {
+          this.log.debug(
+            `DISPATCHING of "${name}" aborted. beforeSetStateCheck was false.`,
+          )
+          return
+        }
+      }
       await this.setState(async (state) => {
         return updatedState
       }) 
 
     }
+
     await effect.call(self, self.state, setState)
+    this.currentlyDispatchedCounter--
   }
   
 
