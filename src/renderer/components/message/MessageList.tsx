@@ -129,14 +129,11 @@ const MessageList = React.memo(function MessageList({
 
 			if(!lastPage) {
 				log.debug(`SCROLL_BEFORE_LAST_PAGE: lastPage is null, returning`)
-				setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 				return
 			}
 			
 			log.debug(`SCROLL_BEFORE_LAST_PAGE lastPage ${lastPage.key}`)		  
 
-			//scrollBeforePage(messageListRef, lastPage.key)
-			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 		})
 	  }
 	}
@@ -153,13 +150,10 @@ const MessageList = React.memo(function MessageList({
 		const messageListWrapperHeight = messageListWrapperRef.current.clientHeight
 		log.debug(`SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: messageListWrapperHeight: ${messageListWrapperHeight} scrollHeight: ${scrollHeight}`)
 		if (scrollHeight <= messageListWrapperHeight) {
-			MessageListStore.currentlyLoadingUNLOCK()
-			MessageListStore.loadPageBefore([], [{
+			MessageListStore.loadPageBefore(messageListStore.chatId, [], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: {}, id: messageListStore.chatId}
 			}])
-		} else {
-			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 		}
 	  } else if (action.type === 'SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE') {
 		const { pageKey } = action.payload
@@ -174,7 +168,6 @@ const MessageList = React.memo(function MessageList({
 			log.warn(
 				`SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE pageElement is null, returning`
 			)
-			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 			return
 		}
 		pageElement.scrollIntoView(true)
@@ -183,12 +176,10 @@ const MessageList = React.memo(function MessageList({
 			log.warn(
 				`SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE firstChild is null, returning`
 			)
-			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 			return
 		}
 		// TODO: Implement check to load more
 		firstChild.setAttribute('style', 'background-color: yellow')
-		setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 	  } else if (action.type === 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE') {
 		const { pageKey, messageIdIndex } = action.payload
 		const pageElement = document.querySelector('#' + pageKey)
@@ -196,7 +187,6 @@ const MessageList = React.memo(function MessageList({
 			log.warn(
 				`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE pageElement is null, returning`
 			)
-			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 			return
 		}
 
@@ -207,7 +197,6 @@ const MessageList = React.memo(function MessageList({
 			log.warn(
 				`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE messageElement is null, returning`
 			)
-			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 			return
 		}
 		//messageElement.setAttribute('style', 'background-color: yellow')
@@ -219,21 +208,19 @@ const MessageList = React.memo(function MessageList({
 		if (scrollTop === 0 && MessageListStore.canLoadPageBefore(pageKey)) {	
 			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: scrollTop === 0, load page before`)
 
-			MessageListStore.currentlyLoadingUNLOCK()
+
 			MessageListStore.loadPageBefore(action.id, [], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: action.payload, id: messageListStore.chatId}
 			}])
 		} else if ((scrollHeight - scrollTop) <= clientHeight && MessageListStore.canLoadPageAfter(pageKey)) {
 			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE: ((scrollHeight - scrollTop) <= clientHeight) === true, load page after`)
-			MessageListStore.currentlyLoadingUNLOCK()
 			MessageListStore.loadPageAfter(action.id, [], [{
 				isLayoutEffect: true,
 				action:{type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE', payload: action.payload, id: messageListStore.chatId}
 			}])
 		} else {
 			log.debug(`SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE no need to load anything`)
-			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 		}
 
 	  } else if (action.type === 'SCROLL_BEFORE_FIRST_PAGE') {
@@ -242,12 +229,10 @@ const MessageList = React.memo(function MessageList({
 
 		if(!beforeFirstPage) {
 			log.debug(`SCROLL_BEFORE_FIRST_PAGE: beforeLastPage is null, returning`)
-			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 			return
 		}
 
 		document.querySelector('#' + beforeFirstPage.key).scrollIntoView()
-		setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
 	  } else if (action.type === 'INCOMING_MESSAGES') {
 		  if (action.id !== MessageListStore.state.chatId) {
 			  log.debug(`INCOMING_MESSAGES: action id mismatches state.chatId. Returning.`)
@@ -288,10 +273,21 @@ const MessageList = React.memo(function MessageList({
 			  log.debug(`RESTORE_SCROLL_POSITION: action id mismatches state.chatId. Returning.`)
 			  return
 			}
-			messageListRef.current.scrollTop = action.payload
+			messageListRef.current.scrollTop = scrollPositionBeforeSetState.current
 			log.debug(`RESTORE_SCROLL_POSITION: restored scrollPosition to ${action.payload}`)
-			setTimeout(() => MessageListStore.currentlyLoadingUNLOCK())
-		}
+		} else if (action.type === 'SCROLL_TO_POSITION') {
+			if (action.id !== MessageListStore.state.chatId) {
+			log.debug(`SCROLL_TO_POSITION: action id mismatches state.chatId. Returning.`)
+			return
+		  }
+		  messageListRef.current.scrollTop = action.payload
+		  log.debug(`SCROLL_TO_POSITION: restored scrollPosition to ${action.payload}`)
+	  }
+	}
+
+	const scrollPositionBeforeSetState = useRef(-1)
+	const beforeSetState = () => {
+		scrollPositionBeforeSetState.current = messageListRef.current.scrollTop
 	}
 
 	const messageListStore = MessageListStore.useStore(onMessageListStoreEffect, onMessageListStoreLayoutEffect)
@@ -372,12 +368,6 @@ const MessageList = React.memo(function MessageList({
 	}
 
 	const onMsgsChanged = async () => {
-		// Find first message displayed on screen
-		if (MessageListStore.isCurrentlyLoadingPage() === true) {
-			log.debug('onMsgsChanged: Currently loading page, returning')
-			return
-		}
-
 		const chatId = MessageListStore.state.chatId
 		const messageIds = await DeltaBackend.call('messageList.getMessageIds', MessageListStore.state.chatId)
 		
@@ -400,8 +390,9 @@ const MessageList = React.memo(function MessageList({
 			return
 		}
 
+		if (MessageListStore.currentlyDispatchedCounter > 0) return
 		MessageListStore.refresh(chatId, messageIds, firstMessageIndex, [
-			{action: {type: 'RESTORE_SCROLL_POSITION', payload: restoreScrollPosition, id: chatId}, isLayoutEffect: true}
+			{action: {type: 'SCROLL_TO_POSITION', payload: restoreScrollPosition, id: chatId}, isLayoutEffect: true}
 		])
 	}
 

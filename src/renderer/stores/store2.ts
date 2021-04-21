@@ -48,12 +48,22 @@ export interface BeforeSetStateCheck {
   (checkState: BeforeSetStateParameters): boolean
 }
 
+export function OnlyDispatchIfCurrentlyDispatchedCounterEqualsZero(args: OnDispatchParameters) {
+  if (args.currentlyDispatchedCounter !== 0) return false
+  return true
+}
+
+export function OnlySetStateIfIncrementingDispatchedCounterDidntIncrease(args: BeforeSetStateParameters) {
+  if (args.incrementingDispatchedCounter !== args.yourIncrementingDispatchedCounter) return false
+  return true
+}
+
 export class Store<S> {
   private listeners: StoreListener<S>[] = []
   private effects: {[key: string]: EffectInterface<S>} = {}
   private _log: ReturnType<typeof getLogger>
-  private currentlyDispatchedCounter = 0
-  private incrementingDispatchedCounter = 0
+  public currentlyDispatchedCounter = 0
+  public incrementingDispatchedCounter = 0
   
   constructor(public state: S, name?: string) {
     if (!name) name = 'Store2'
@@ -72,7 +82,7 @@ export class Store<S> {
     return this.state
   }
 
-  async dispatch(name: string, effect: (state: S, setState: StoreDispatchSetState<S>) => Promise<void>, onDispatchCheck?: OnDispatchCheck, beforeSetStateCheck?: BeforeSetStateCheck): Promise<void> {
+  async dispatch(name: string, effect: (state: S, setState: StoreDispatchSetState<S>, yourIncrementingDispatchedCounter: number) => Promise<void>, onDispatchCheck?: OnDispatchCheck, beforeSetStateCheck?: BeforeSetStateCheck): Promise<void> {
     this.log.debug('DISPATCH of type', name)
     const self = this
     
@@ -90,18 +100,24 @@ export class Store<S> {
         return
       }
     }
-    
-    let yourIncrementingDispatchedCounter = this.incrementingDispatchedCounter++
-    if (yourIncrementingDispatchedCounter >= Number.MAX_SAFE_INTEGER - 1) {
-      yourIncrementingDispatchedCounter = this.incrementingDispatchedCounter = 0
-    }
-    this.currentlyDispatchedCounter++
 
+    this.incrementingDispatchedCounter++
+    if (this.incrementingDispatchedCounter >= Number.MAX_SAFE_INTEGER - 1) {
+      this.incrementingDispatchedCounter = 0
+    }
+
+    let yourIncrementingDispatchedCounter = this.incrementingDispatchedCounter
+    this.currentlyDispatchedCounter++
+    this.log.debug(`DISPATCHING OF ${name} increased the currentlyDispatchedCounter ${this.currentlyDispatchedCounter} xxx`)
+
+    let calledSetState = false
     const setState = async (updatedState: S) => {
+      calledSetState = true
       if (updatedState === this.state) {
         this.log.debug(
           `DISPATCHING of "${name}" didn't change the state. Returning.`,
         )
+        this.currentlyDispatchedCounter--
         return
       }
       this.log.debug(
@@ -123,17 +139,19 @@ export class Store<S> {
           this.log.debug(
             `DISPATCHING of "${name}" aborted. beforeSetStateCheck was false.`,
           )
+          this.currentlyDispatchedCounter--
           return
         }
       }
+      this.pushEffect({id: null, payload: null, type: 'DECREASE_CURRENTLY_DISPATCHED_COUNTER'})
       await this.setState(async (state) => {
         return updatedState
       }) 
 
     }
-
-    await effect.call(self, self.state, setState)
-    this.currentlyDispatchedCounter--
+    
+    await effect.call(self, self.state, setState, yourIncrementingDispatchedCounter)
+    if (!calledSetState) this.currentlyDispatchedCounter--
   }
   
 
@@ -184,13 +202,18 @@ export class Store<S> {
     }
   }
 
-  useStore(onAction?: (action: Action) => void, onLayoutAction?: (action: Action) => void): S {
+  useStore(onAction?: (action: Action) => void, onLayoutAction?: (action: Action) => void, beforeSetState?: () => void): S {
     const self = this
     console.log(self)
-    const [state, setState] = useState(self.getState())
+    const [state, _setState] = useState(self.getState())
     const [forceTriggerEffect, setForceTriggerEffect] = useState(false)
     const effectQueue = useRef<Action[]>([])
     const layoutEffectQueue = useRef<Action[]>([])
+
+    const setState = (args: React.SetStateAction<S>) => {
+      if (beforeSetState) beforeSetState()
+      _setState(args)
+    }
 
     useEffect(() => {
       return self.subscribe({
@@ -202,10 +225,17 @@ export class Store<S> {
     }, [])
     
     useEffect(() => {
-      this.log.debug('useEffect')
+      self.log.debug('useEffect')
       
       while (effectQueue.current.length > 0) {
-        onAction(effectQueue.current.pop())
+        const effect = effectQueue.current.pop()
+        console.log(effect)
+        if (effect.type === 'DECREASE_CURRENTLY_DISPATCHED_COUNTER') {
+          self.currentlyDispatchedCounter--
+          self.log.debug('useEffect: xxx DECREASE_CURRENTLY_DISPATCHED_COUNTER', self.currentlyDispatchedCounter)
+          continue
+        } 
+        onAction(effect)
       }
     }, [state, forceTriggerEffect])
     
