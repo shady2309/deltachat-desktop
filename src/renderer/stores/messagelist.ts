@@ -73,6 +73,7 @@ export class PageStore extends Store<PageStoreState> {
   }
   
   dispatchesAfter(dispatchesAfter: DispatchesAfter) {
+    if (!dispatchesAfter) return
     dispatchesAfter.forEach(this.dispatchAfter.bind(this))
   }
   

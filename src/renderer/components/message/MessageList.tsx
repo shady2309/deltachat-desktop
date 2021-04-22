@@ -382,7 +382,7 @@ const MessageList = React.memo(function MessageList({
 		const _messagesInView = Array.from(messagesInView(messageListRef))
 
 		if (_messagesInView.length === 0) {
-			log.error('onMsgsChanged: No message in view. Returning.')
+			log.debug('onMsgsChanged: No message in view. Returning.')
 			return
 		}
 
@@ -399,20 +399,25 @@ const MessageList = React.memo(function MessageList({
 		}
 
 		if (firstMessageIndex === -1) {
-			log.error('onMsgsChanged: No message in view is in changed messageIds. Trying to find closest still existing message.')
 			const {messageIndex: indexOfFirstMessageInView} = parseMessageKey(_messagesInView[0].messageElement.getAttribute('id'))
+			log.debug(`onMsgsChanged: No message in view is in changed messageIds. Trying to find closest still existing message. indexOfFirstMessageInView: ${indexOfFirstMessageInView}`)
 			const oldMessageIds = MessageListStore.state.messageIds
 
 			for (let messageIndex of rotateAwayFromIndex(indexOfFirstMessageInView, messageIds.length)) {
-				const realMessageIndex = messageIds.indexOf(oldMessageIds[messageIndex])
+				const messageId = oldMessageIds[messageIndex]
+				const realMessageIndex = messageIds.indexOf(messageId)
+				console.log(messageIndex, messageId, realMessageIndex)
 				if (realMessageIndex === -1) continue
 				firstMessageIndex = realMessageIndex
+				break
 			}
+			MessageListStore.jumpToMessage(chatId, messageIds[firstMessageIndex])
 			return
+			
 		}
 
 		if (firstMessageIndex === -1) {
-			log.error('onMsgsChanged: Could not find a message to restore from. Reloading chat.')
+			log.debug('onMsgsChanged: Could not find a message to restore from. Reloading chat.')
 			MessageListStore.selectChat(chatId)
 			return
 		}
@@ -458,6 +463,7 @@ const MessageList = React.memo(function MessageList({
 				console.debug(m.messageElement)
 			}
 		}
+		;(window as unknown as any).refreshMessages = onMsgsChanged
 
 		return () => {
 			onMessageListTopObserver.disconnect()
