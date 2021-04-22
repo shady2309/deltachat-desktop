@@ -95,9 +95,12 @@ function* messagesInView (messageListRef: React.MutableRefObject<HTMLElement>) {
 	for (let messageElement of messageElements) {
 		const messageOffsetTop = messageElement.offsetTop
 		const messageOffsetBottom = messageOffsetTop + messageElement.clientHeight
+
+
 	
 		if (mathInBetween(messageListOffsetTop, messageListOffsetBottom, messageOffsetTop)
-			|| mathInBetween(messageListOffsetTop, messageListOffsetBottom, messageOffsetBottom)) {
+			|| mathInBetween(messageListOffsetTop, messageListOffsetBottom, messageOffsetBottom)
+			|| (messageOffsetTop < messageListOffsetTop && messageOffsetBottom > messageListOffsetBottom)) {
 			yield {
 				messageListClientHeight,
 				messageListOffsetTop,
@@ -109,6 +112,9 @@ function* messagesInView (messageListRef: React.MutableRefObject<HTMLElement>) {
 		}
 	}
 }
+
+
+
 
 const MessageList = React.memo(function MessageList({
 	chat,
@@ -372,9 +378,17 @@ const MessageList = React.memo(function MessageList({
 		const messageIds = await DeltaBackend.call('messageList.getMessageIds', MessageListStore.state.chatId)
 		
 		let firstMessageIndex = -1
-		let restoreScrollPosition
-		for (let {messageElement, messageListOffsetTop, messageOffsetTop} of messagesInView(messageListRef)) {
+		let restoreScrollPosition = -1
+		const _messagesInView = Array.from(messagesInView(messageListRef))
+
+		if (_messagesInView.length === 0) {
+			log.error('onMsgsChanged: No message in view. Returning.')
+			return
+		}
+
+		for (let {messageElement, messageListOffsetTop, messageOffsetTop} of _messagesInView) {
 			const { messageId } = parseMessageKey(messageElement.getAttribute('id'))
+			console.log(messageId)
 			
 			const messageIndex = messageIds.indexOf(messageId)
 			if (messageIndex === -1) continue
@@ -385,13 +399,26 @@ const MessageList = React.memo(function MessageList({
 		}
 
 		if (firstMessageIndex === -1) {
-			log.error('onMsgsChanged: No message in view is in changed messageIds. Loading chat without scroll restore.')
-			MessageListStore.selectChat(MessageListStore.state.chatId)
+			log.error('onMsgsChanged: No message in view is in changed messageIds. Trying to find closest still existing message.')
+			const {messageIndex: indexOfFirstMessageInView} = parseMessageKey(_messagesInView[0].messageElement.getAttribute('id'))
+			const oldMessageIds = MessageListStore.state.messageIds
+
+			for (let messageIndex of rotateAwayFromIndex(indexOfFirstMessageInView, messageIds.length)) {
+				const realMessageIndex = messageIds.indexOf(oldMessageIds[messageIndex])
+				if (realMessageIndex === -1) continue
+				firstMessageIndex = realMessageIndex
+			}
+			return
+		}
+
+		if (firstMessageIndex === -1) {
+			log.error('onMsgsChanged: Could not find a message to restore from. Reloading chat.')
+			MessageListStore.selectChat(chatId)
 			return
 		}
 
 		if (MessageListStore.currentlyDispatchedCounter > 0) return
-		MessageListStore.refresh(chatId, messageIds, firstMessageIndex, [
+		MessageListStore.refresh(chatId, messageIds, firstMessageIndex, restoreScrollPosition === -1 ? null : [
 			{action: {type: 'SCROLL_TO_POSITION', payload: restoreScrollPosition, id: chatId}, isLayoutEffect: true}
 		])
 	}
@@ -425,8 +452,12 @@ const MessageList = React.memo(function MessageList({
 		
 		ipcBackend.on('DC_EVENT_MSGS_CHANGED', onMsgsChanged)
 		ipcBackend.on('DC_EVENT_INCOMING_MSG', onIncomingMessage)
-		
-		;(window as unknown as any).onMessagesChanged = onMsgsChanged
+
+		;(window as unknown as any).messagesInView = () => {
+			for (let m of messagesInView(messageListRef)) {
+				console.debug(m.messageElement)
+			}
+		}
 
 		return () => {
 			onMessageListTopObserver.disconnect()
@@ -504,6 +535,25 @@ export function parseMessageKey(messageKey: string) {
 		pageKey: `page-${splittedMessageKey[1]}-${splittedMessageKey[2]}`,
 		messageId: Number.parseInt(splittedMessageKey[3]),
 		messageIndex: Number.parseInt(splittedMessageKey[4])
+	}
+}
+
+export function* rotateAwayFromIndex(index: number, length: number) {
+	let count = 0
+
+	let distance = 1
+	while (count < length - 1) {
+		const positive_rotate_index = index + distance
+		if (positive_rotate_index < length) {
+			yield positive_rotate_index
+			count++
+		}
+		const negative_rotate_index = index - distance
+		if (negative_rotate_index >= 0) {
+			yield negative_rotate_index
+			count++
+		}
+		distance++
 	}
 }
 

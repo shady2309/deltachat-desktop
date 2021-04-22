@@ -597,7 +597,6 @@ export class PageStore extends Store<PageStoreState> {
   deleteMessage(messageId: number) {
     this.dispatch('deleteMessage', async (state, setState) => {
         log.debug(`deleteMessage: deleting message with id ${messageId}`)
-
         DeltaBackend.call('messageList.deleteMessage', messageId)
     })
   }
