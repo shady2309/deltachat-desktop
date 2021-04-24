@@ -375,7 +375,22 @@ const MessageList = React.memo(function MessageList({
 
 	const onMsgsChanged = async () => {
 		const chatId = MessageListStore.state.chatId
-		const messageIds = await DeltaBackend.call('messageList.getMessageIds', MessageListStore.state.chatId)
+
+		const scrollTop = messageListRef.current.scrollTop
+		const scrollHeight = messageListRef.current.scrollHeight
+		const wrapperHeight = messageListWrapperRef.current.clientHeight
+		const isScrolledToBottom = scrollTop >= scrollHeight - wrapperHeight 
+		
+		if (isScrolledToBottom) {
+			MessageListStore.selectChat(chatId)
+			return
+		}
+
+		const unreadMessageIds = await DeltaBackend.call('messageList.getUnreadMessageIds', chatId)
+		const firstUnreadMessageId = unreadMessageIds.length > 0 ? unreadMessageIds[0] : -1
+		const marker1MessageId = firstUnreadMessageId || 0
+
+      	const messageIds = await DeltaBackend.call('messageList.getMessageIds', chatId, marker1MessageId)
 		
 		let firstMessageIndex = -1
 		let restoreScrollPosition = -1
@@ -387,10 +402,14 @@ const MessageList = React.memo(function MessageList({
 		}
 
 		for (let {messageElement, messageListOffsetTop, messageOffsetTop} of _messagesInView) {
-			const { messageId } = parseMessageKey(messageElement.getAttribute('id'))
+			const { messageId, messageIndex: oldMessageIndex } = parseMessageKey(messageElement.getAttribute('id'))
 			console.log(messageId)
 			
 			const messageIndex = messageIds.indexOf(messageId)
+			if (messageId <= 9 && oldMessageIndex !== messageIndex) {
+				continue
+			}
+			
 			if (messageIndex === -1) continue
 
 			firstMessageIndex = messageIndex
@@ -403,14 +422,21 @@ const MessageList = React.memo(function MessageList({
 			log.debug(`onMsgsChanged: No message in view is in changed messageIds. Trying to find closest still existing message. indexOfFirstMessageInView: ${indexOfFirstMessageInView}`)
 			const oldMessageIds = MessageListStore.state.messageIds
 
-			for (let messageIndex of rotateAwayFromIndex(indexOfFirstMessageInView, messageIds.length)) {
-				const messageId = oldMessageIds[messageIndex]
+			for (let oldMessageIndex of rotateAwayFromIndex(indexOfFirstMessageInView, messageIds.length)) {
+				const messageId = oldMessageIds[oldMessageIndex]
 				const realMessageIndex = messageIds.indexOf(messageId)
-				console.log(messageIndex, messageId, realMessageIndex)
+				console.log(oldMessageIndex, messageId, realMessageIndex)
+				if (messageId <= 9 && oldMessageIndex !== realMessageIndex) {
+					continue
+				}
+				
 				if (realMessageIndex === -1) continue
 				firstMessageIndex = realMessageIndex
 				break
 			}
+			// In theory it would be better/more accurate to jump to the bottom if firstMessageIndex < indexOfFirstMessageInView  
+			// and to the top of the message if firstMessageIndex > indexOfFirstMessageInView
+			// But this should be good enough for now
 			MessageListStore.jumpToMessage(chatId, messageIds[firstMessageIndex])
 			return
 			
@@ -458,6 +484,8 @@ const MessageList = React.memo(function MessageList({
 		ipcBackend.on('DC_EVENT_MSGS_CHANGED', onMsgsChanged)
 		ipcBackend.on('DC_EVENT_INCOMING_MSG', onIncomingMessage)
 
+
+		// ONLY FOR DEBUGGING, REMOVE BEFORE MERGE
 		;(window as unknown as any).messagesInView = () => {
 			for (let m of messagesInView(messageListRef)) {
 				console.debug(m.messageElement)
