@@ -61,6 +61,13 @@
     max-height: 100%;
     width: 100%;
     padding: 0 0.5em;
+    
+
+    // Fix unnecessary repaints
+    // https://stackoverflow.com/questions/24741502/can-i-do-anything-about-repaints-on-scroll-warning-in-chrome-for-overflowscr
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+}
 
     &::-webkit-scrollbar-track {
       background: transparent;
