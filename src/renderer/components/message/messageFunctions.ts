@@ -29,13 +29,13 @@ export function forwardMessage(message: MessageType) {
 
 export function deleteMessageWithConfirm(
   msg: MsgObject,
-  chatStoreDispatch: ChatStoreDispatch
+  _chatStoreDispatch: ChatStoreDispatch
 ) {
   const tx = window.static_translate
   window.__openDialog('ConfirmationDialog', {
     message: tx('ask_delete_message_desktop'),
     confirmLabel: tx('delete'),
-    cb: (yes: boolean) => yes && deleteMessage(msg.id)
+    cb: (yes: boolean) => yes && deleteMessage(msg.id),
   })
 }
 

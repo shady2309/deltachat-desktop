@@ -214,12 +214,7 @@ class DeltaRemote {
     fnName: 'messageList.sendMessage',
     chatId: number,
     params: sendMessageParams
-  ): Promise<
-    [
-      number,
-      Message2
-    ]
-  >
+  ): Promise<[number, Message2]>
   call(
     fnName: 'messageList.sendSticker',
     chatId: number,
@@ -235,7 +230,7 @@ class DeltaRemote {
     chatId: number,
     indexStart: number,
     indexEnd: number,
-    marker1Before?: number    
+    marker1Before?: number
   ): Promise<Message2[]>
   call(fnName: 'messageList.getMessageInfo', msgId: number): Promise<string>
   call(
@@ -255,7 +250,11 @@ class DeltaRemote {
     fnName: 'messageList.messageIdToJson',
     id: number
   ): Promise<{ msg: null } | MessageType>
-  call(fnName: 'messageList.getMessageIds', chatid: number, marker1Before?: number): Promise<number[]>
+  call(
+    fnName: 'messageList.getMessageIds',
+    chatid: number,
+    marker1Before?: number
+  ): Promise<number[]>
   call(
     fnName: 'messageList.forwardMessage',
     msgId: number,
@@ -274,7 +273,7 @@ class DeltaRemote {
     fnName: 'messageList.saveMessageHTML2Disk',
     messageId: number
   ): Promise<string>
-  call( 
+  call(
     fnName: 'messageList.getFirstUnreadMessageId',
     chatId: number
   ): Promise<number>

@@ -61,9 +61,9 @@ export class Store<S> {
       this.listeners.forEach(listener => listener(this.state))
     }
   }
-  
+
   dispatch2(type: string, payload: any, id: number) {
-    const action: Action = { type, payload, id}
+    const action: Action = { type, payload, id }
     return this.dispatch(action)
   }
 

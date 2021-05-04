@@ -176,17 +176,17 @@ export default class DeltaChatController extends EventEmitter {
     this.sendToRenderer(event, [data1, data2])
   }
 
-  onMsgsChanged(chatId: number, _msgId: number) {
+  onMsgsChanged(_chatId: number, _msgId: number) {
     this.onChatlistUpdated()
     // chatListItem listens to this in the frontend
   }
 
-  onIncomingMsg(chatId: number, msgId: number) {
+  onIncomingMsg(_chatId: number, _msgId: number) {
     this.onChatlistUpdated()
     // chatListItem listens to this in the frontend
   }
 
-  onChatModified(chatId: number, _msgId: number) {
+  onChatModified(_chatId: number, _msgId: number) {
     this.onChatlistUpdated()
     // chatListItem listens to this in the frontend
   }

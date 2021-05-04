@@ -19,19 +19,19 @@
 
     position: relative;
     left: calc(100% - $width - $marginRight);
-    top: -( + $marginBottom);
+    top: -(+ $marginBottom);
     height: $heightUnreadCounter + $heightJumpToBottomButton;
     width: $width;
     .counter {
       position: relative;
       z-index: 10;
-      
+
       width: 30px;
       height: 30px;
 
-      margin: 0 auto; 
+      margin: 0 auto;
       border-radius: 100%;
-      
+
       background-color: var(--colorPrimary);
       color: white;
       line-height: 30px;
@@ -41,16 +41,16 @@
     .jump-to-bottom-button {
       position: relative;
       z-index: 8;
-      
+
       height: $heightUnreadCounter;
       margin: 0 auto;
       margin-top: -10px;
       width: $width;
-      
+
       line-height: $heightUnreadCounter;
       background-color: white;
       border-radius: 100%;
-      
+
       cursor: pointer;
     }
   }
@@ -67,7 +67,6 @@
     max-height: 100%;
     width: 100%;
     padding: 0 0.5em;
-    
 
     // Fix unnecessary repaints
     // https://stackoverflow.com/questions/24741502/can-i-do-anything-about-repaints-on-scroll-warning-in-chrome-for-overflowscr
@@ -77,17 +76,16 @@
     &::-webkit-scrollbar-track {
       background: transparent;
     }
-    
   }
 
   ul {
     display: flex;
-    flex-direction: column; 
+    flex-direction: column;
     list-style: none;
     min-width: 200px;
     box-sizing: border-box;
     margin: 0px;
-    
+
     li {
       margin-bottom: 10px;
       min-width: 200px;

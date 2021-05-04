@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { useState, useEffect, useLayoutEffect } from 'react'
-import { getLogger, Logger } from '../../shared/logger'
+import { getLogger } from '../../shared/logger'
 
 export type ActionType = string
 export type ActionPayload = any | undefined
@@ -11,25 +11,24 @@ export interface Action {
   id: ActionId
 }
 
-export interface EffectInterface<S>{
-  (action: Action, state: S, log: ReturnType<typeof getLogger>) : Promise<S>
+export interface EffectInterface<S> {
+  (action: Action, state: S, log: ReturnType<typeof getLogger>): Promise<S>
 }
 
-
-export interface StoreListener<S>{
-  onStateChange: (state: S) => void,
-  onForceTriggerEffect: () => void,
-  onPushEffect: (a: Action) => void,
+export interface StoreListener<S> {
+  onStateChange: (state: S) => void
+  onForceTriggerEffect: () => void
+  onPushEffect: (a: Action) => void
   onPushLayoutEffect: (a: Action) => void
 }
 
 export interface StoreDispatchSetState<S> {
-  (state: S) : Promise<void>
+  (state: S): Promise<void>
 }
 
 export interface OnDispatchParameters {
-  currentlyDispatchedCounter: number,
-  incrementingDispatchedCounter: number,
+  currentlyDispatchedCounter: number
+  incrementingDispatchedCounter: number
   name: string
 }
 
@@ -38,9 +37,9 @@ export interface OnDispatchCheck {
 }
 
 export interface BeforeSetStateParameters {
-  currentlyDispatchedCounter: number,
-  incrementingDispatchedCounter: number,
-  yourIncrementingDispatchedCounter: number,
+  currentlyDispatchedCounter: number
+  incrementingDispatchedCounter: number
+  yourIncrementingDispatchedCounter: number
   name: string
 }
 
@@ -48,23 +47,31 @@ export interface BeforeSetStateCheck {
   (checkState: BeforeSetStateParameters): boolean
 }
 
-export function OnlyDispatchIfCurrentlyDispatchedCounterEqualsZero(args: OnDispatchParameters) {
+export function OnlyDispatchIfCurrentlyDispatchedCounterEqualsZero(
+  args: OnDispatchParameters
+) {
   if (args.currentlyDispatchedCounter !== 0) return false
   return true
 }
 
-export function OnlySetStateIfIncrementingDispatchedCounterDidntIncrease(args: BeforeSetStateParameters) {
-  if (args.incrementingDispatchedCounter !== args.yourIncrementingDispatchedCounter) return false
+export function OnlySetStateIfIncrementingDispatchedCounterDidntIncrease(
+  args: BeforeSetStateParameters
+) {
+  if (
+    args.incrementingDispatchedCounter !==
+    args.yourIncrementingDispatchedCounter
+  )
+    return false
   return true
 }
 
 export class Store<S> {
   private listeners: StoreListener<S>[] = []
-  private effects: {[key: string]: EffectInterface<S>} = {}
+  private effects: { [key: string]: EffectInterface<S> } = {}
   private _log: ReturnType<typeof getLogger>
   public currentlyDispatchedCounter = 0
   public incrementingDispatchedCounter = 0
-  
+
   constructor(public state: S, name?: string) {
     if (!name) name = 'Store2'
     this._log = getLogger('renderer/stores/' + name)
@@ -82,20 +89,27 @@ export class Store<S> {
     return this.state
   }
 
-  async dispatch(name: string, effect: (state: S, setState: StoreDispatchSetState<S>, yourIncrementingDispatchedCounter: number) => Promise<void>, onDispatchCheck?: OnDispatchCheck, beforeSetStateCheck?: BeforeSetStateCheck): Promise<void> {
+  async dispatch(
+    name: string,
+    effect: (
+      state: S,
+      setState: StoreDispatchSetState<S>,
+      yourIncrementingDispatchedCounter: number
+    ) => Promise<void>,
+    onDispatchCheck?: OnDispatchCheck,
+    beforeSetStateCheck?: BeforeSetStateCheck
+  ): Promise<void> {
     this.log.debug('DISPATCH of type', name)
-    const self = this
-    
     if (onDispatchCheck) {
       const shouldDispatch = onDispatchCheck({
         currentlyDispatchedCounter: this.currentlyDispatchedCounter,
         incrementingDispatchedCounter: this.incrementingDispatchedCounter,
-        name
+        name,
       })
 
       if (!shouldDispatch) {
         this.log.debug(
-          `DISPATCHING of "${name}" aborted. onDispatchCheck was false.`,
+          `DISPATCHING of "${name}" aborted. onDispatchCheck was false.`
         )
         return
       }
@@ -106,16 +120,18 @@ export class Store<S> {
       this.incrementingDispatchedCounter = 0
     }
 
-    let yourIncrementingDispatchedCounter = this.incrementingDispatchedCounter
+    const yourIncrementingDispatchedCounter = this.incrementingDispatchedCounter
     this.currentlyDispatchedCounter++
-    this.log.debug(`DISPATCHING OF ${name} increased the currentlyDispatchedCounter ${this.currentlyDispatchedCounter} xxx`)
+    this.log.debug(
+      `DISPATCHING OF ${name} increased the currentlyDispatchedCounter ${this.currentlyDispatchedCounter} xxx`
+    )
 
     let calledSetState = false
     const setState = async (updatedState: S) => {
       calledSetState = true
       if (updatedState === this.state) {
         this.log.debug(
-          `DISPATCHING of "${name}" didn't change the state. Returning.`,
+          `DISPATCHING of "${name}" didn't change the state. Returning.`
         )
         this.currentlyDispatchedCounter--
         return
@@ -129,31 +145,38 @@ export class Store<S> {
 
       if (beforeSetStateCheck) {
         const shouldSetState = beforeSetStateCheck({
-          currentlyDispatchedCounter: self.currentlyDispatchedCounter,
-          incrementingDispatchedCounter: self.incrementingDispatchedCounter,
+          currentlyDispatchedCounter: this.currentlyDispatchedCounter,
+          incrementingDispatchedCounter: this.incrementingDispatchedCounter,
           yourIncrementingDispatchedCounter,
-          name
+          name,
         })
-        
-        if(!shouldSetState) {
+
+        if (!shouldSetState) {
           this.log.debug(
-            `DISPATCHING of "${name}" aborted. beforeSetStateCheck was false.`,
+            `DISPATCHING of "${name}" aborted. beforeSetStateCheck was false.`
           )
           this.currentlyDispatchedCounter--
           return
         }
       }
-      this.pushEffect({id: null, payload: null, type: 'DECREASE_CURRENTLY_DISPATCHED_COUNTER'})
-      await this.setState(async (state) => {
+      this.pushEffect({
+        id: null,
+        payload: null,
+        type: 'DECREASE_CURRENTLY_DISPATCHED_COUNTER',
+      })
+      await this.setState(async _state => {
         return updatedState
-      }) 
-
+      })
     }
-    
-    await effect.call(self, self.state, setState, yourIncrementingDispatchedCounter)
+
+    await effect.call(
+      this,
+      this.state,
+      setState,
+      yourIncrementingDispatchedCounter
+    )
     if (!calledSetState) this.currentlyDispatchedCounter--
   }
-  
 
   private subscribe(listener: StoreListener<S>) {
     this.listeners.push(listener)
@@ -168,44 +191,49 @@ export class Store<S> {
   async setState(cb: (state: S) => Promise<S> | S) {
     const updatedState = await cb(this.state)
     if (!updatedState || updatedState === this.state) {
-      this.log.info('setState: state didn\'t change')
+      this.log.info("setState: state didn't change")
       return
     }
     this.log.info('setState: state changed')
     this.state = updatedState
-    for(let listener of this.listeners) {
+    for (const listener of this.listeners) {
       listener.onStateChange(this.state)
     }
   }
-  
+
   async pushEffect(action: Action, forceUpdate?: boolean) {
     this.log.info(`pushEffect: pushed effect ${action.type} ${action}`)
-    for(let listener of this.listeners) {
+    for (const listener of this.listeners) {
       listener.onPushEffect(action)
     }
     if (forceUpdate === true) {
-      for(let listener of this.listeners) {
+      for (const listener of this.listeners) {
         listener.onForceTriggerEffect()
       }
     }
   }
 
   async pushLayoutEffect(action: Action, forceUpdate?: boolean) {
-    this.log.info(`pushLayoutEffect: pushed layout effect ${action.type} ${action}`)
-    for(let listener of this.listeners) {
+    this.log.info(
+      `pushLayoutEffect: pushed layout effect ${action.type} ${action}`
+    )
+    for (const listener of this.listeners) {
       listener.onPushLayoutEffect(action)
     }
     if (forceUpdate === true) {
-      for(let listener of this.listeners) {
+      for (const listener of this.listeners) {
         listener.onForceTriggerEffect()
       }
     }
   }
 
-  useStore(onAction?: (action: Action) => void, onLayoutAction?: (action: Action) => void, beforeSetState?: () => void): S {
-    const self = this
-    console.log(self)
-    const [state, _setState] = useState(self.getState())
+  useStore(
+    onAction?: (action: Action) => void,
+    onLayoutAction?: (action: Action) => void,
+    beforeSetState?: () => void
+  ): S {
+    console.log(this)
+    const [state, _setState] = useState(this.getState())
     const [forceTriggerEffect, setForceTriggerEffect] = useState(false)
     const effectQueue = useRef<Action[]>([])
     const layoutEffectQueue = useRef<Action[]>([])
@@ -216,29 +244,33 @@ export class Store<S> {
     }
 
     useEffect(() => {
-      return self.subscribe({
+      return this.subscribe({
         onStateChange: setState,
-        onForceTriggerEffect: () => setForceTriggerEffect(prevState => !prevState),
-        onPushEffect: (a) => effectQueue.current.push(a),
-        onPushLayoutEffect: (a) => layoutEffectQueue.current.push(a)
+        onForceTriggerEffect: () =>
+          setForceTriggerEffect(prevState => !prevState),
+        onPushEffect: a => effectQueue.current.push(a),
+        onPushLayoutEffect: a => layoutEffectQueue.current.push(a),
       })
     }, [])
-    
+
     useEffect(() => {
-      self.log.debug('useEffect')
-      
+      this.log.debug('useEffect')
+
       while (effectQueue.current.length > 0) {
         const effect = effectQueue.current.pop()
         console.log(effect)
         if (effect.type === 'DECREASE_CURRENTLY_DISPATCHED_COUNTER') {
-          self.currentlyDispatchedCounter--
-          self.log.debug('useEffect: xxx DECREASE_CURRENTLY_DISPATCHED_COUNTER', self.currentlyDispatchedCounter)
+          this.currentlyDispatchedCounter--
+          this.log.debug(
+            'useEffect: xxx DECREASE_CURRENTLY_DISPATCHED_COUNTER',
+            this.currentlyDispatchedCounter
+          )
           continue
-        } 
+        }
         onAction(effect)
       }
     }, [state, forceTriggerEffect])
-    
+
     useLayoutEffect(() => {
       this.log.debug('useLayoutEffect')
       while (layoutEffectQueue.current.length > 0) {

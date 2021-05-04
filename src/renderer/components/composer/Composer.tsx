@@ -11,16 +11,14 @@ import { SettingsContext, useTranslationFunction } from '../../contexts'
 import ComposerMessageInput from './ComposerMessageInput'
 import { getLogger } from '../../../shared/logger'
 import { EmojiAndStickerPicker } from './EmojiAndStickerPicker'
-import { useChatStore } from '../../stores/chat'
 import { EmojiData, BaseEmoji } from 'emoji-mart'
 import { replaceColonsSafe } from '../conversations/emoji'
-import { JsonMessage, MessageType } from '../../../shared/shared-types'
+import { MessageType } from '../../../shared/shared-types'
 import { Quote } from '../message/Message'
-import { DeltaBackend, sendMessageParams } from '../../delta-remote'
+import { DeltaBackend } from '../../delta-remote'
 import { DraftAttachment } from '../attachment/messageAttachment'
 import { runtime } from '../../runtime'
 import { sendMessage } from '../helpers/ChatMethods'
-import { MessageQuote } from '../../../shared/shared-types'
 
 const log = getLogger('renderer/composer')
 
@@ -75,7 +73,6 @@ const Composer = forwardRef<
     removeFile,
     clearDraft,
   } = props
-  const chatStoreDispatch = useChatStore()[1]
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
   const emojiAndStickerRef = useRef<HTMLDivElement>()
@@ -90,15 +87,11 @@ const Composer = forwardRef<
         log.debug(`Empty message: don't send it...`)
         return
       }
-      sendMessage(
-        chatId,
-        {
-          
-          text: replaceColonsSafe(message),
-          filename: draftState.file,
-          quoteMessageId: draftState.quote?.messageId,
-        }
-      )
+      sendMessage(chatId, {
+        text: replaceColonsSafe(message),
+        filename: draftState.file,
+        quoteMessageId: draftState.quote?.messageId,
+      })
 
       /* clear it here to make sure the draft is cleared */
       DeltaBackend.call('messageList.setDraft', chatId, {
@@ -183,9 +176,7 @@ const Composer = forwardRef<
         <div className='upper-bar'>
           {draftState.quote !== null && (
             <div className='attachment-quote-section is-quote'>
-              <Quote
-                quote={draftState.quote}
-              />
+              <Quote quote={draftState.quote} />
               <QuoteOrDraftRemoveButton onClick={removeQuote} />
             </div>
           )}
@@ -245,7 +236,10 @@ const Composer = forwardRef<
 
 export default Composer
 
-type draftObject = Pick<MessageType['msg'], 'chatId' | 'text' | 'file' | 'attachment' | 'viewType' | 'quote'>
+type draftObject = Pick<
+  MessageType['msg'],
+  'chatId' | 'text' | 'file' | 'attachment' | 'viewType' | 'quote'
+>
 
 export function useDraft(
   chatId: number,
@@ -264,7 +258,7 @@ export function useDraft(
     file: null,
     attachment: null,
     viewType: null,
-    quote: null
+    quote: null,
   })
   const draftRef = useRef<draftObject>()
   draftRef.current = draftState
@@ -284,7 +278,7 @@ export function useDraft(
           file: newDraft.msg.file,
           attachment: newDraft.msg.attachment,
           viewType: newDraft.msg.viewType,
-          quote: newDraft.msg.quote
+          quote: newDraft.msg.quote,
         }))
         inputRef.current?.setText(newDraft.msg.text)
       }
@@ -311,7 +305,7 @@ export function useDraft(
         file: newDraft.msg.file,
         attachment: newDraft.msg.attachment,
         viewType: newDraft.msg.viewType,
-        quote: newDraft.msg.quote
+        quote: newDraft.msg.quote,
       }))
       // don't load text to prevent bugging back
     } else {
@@ -350,20 +344,26 @@ export function useDraft(
       file: null,
       attachment: null,
       viewType: null,
-      quote: null
+      quote: null,
     }))
     inputRef.current?.focus()
   }
 
   useEffect(() => {
     window.__setQuoteInDraft = async (messageId: number) => {
-      const message = await DeltaBackend.call('messageList.getMessage', messageId)
-      const contact = await DeltaBackend.call('contacts.getContact', message.msg.fromId)
+      const message = await DeltaBackend.call(
+        'messageList.getMessage',
+        messageId
+      )
+      const contact = await DeltaBackend.call(
+        'contacts.getContact',
+        message.msg.fromId
+      )
       draftRef.current.quote = {
         messageId,
         text: message.msg.text,
         displayName: contact.displayName,
-        displayColor: contact.color
+        displayColor: contact.color,
       }
       saveDraft()
       inputRef.current.focus()

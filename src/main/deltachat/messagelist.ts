@@ -15,17 +15,13 @@ import {
   MessageType,
   MessageSearchResult,
   MessageTypeAttachment,
-  MessageState,
   Message2,
   MessageQuote,
 } from '../../shared/shared-types'
 
 import { writeFile } from 'fs-extra'
 import tempy from 'tempy'
-import { getAccountsPath } from '../application-constants'
-import { join } from 'path'
 import { MessageType2 } from '../../shared/shared'
-import { MultiGrid } from 'react-virtualized'
 export default class DCMessageList extends SplitOut {
   sendMessage(
     chatId: number,
@@ -58,7 +54,9 @@ export default class DCMessageList extends SplitOut {
 
     const messageId = this._dc.sendMessage(chatId, msg)
     const _msg = this._dc.getMessage(messageId)
-    const message = _msg ? { type: MessageType2.Message, message: this._messageToJson(_msg) } : null
+    const message = _msg
+      ? { type: MessageType2.Message, message: this._messageToJson(_msg) }
+      : null
     return [messageId, message]
   }
 
@@ -89,22 +87,22 @@ export default class DCMessageList extends SplitOut {
 
     let foundFreshMessages = 0
     let firstUnreadMessageId = -1
-    for(let i = messageIds.length -1; i >= 0; i--) {
+    for (let i = messageIds.length - 1; i >= 0; i--) {
       const messageId = messageIds[i]
 
       if (!this._dc.getMessage(messageId).getState().isFresh()) continue
-        
+
       foundFreshMessages++
       firstUnreadMessageId = messageId
 
       if (foundFreshMessages >= countFreshMessages) {
         break
       }
-    } 
+    }
 
     return firstUnreadMessageId
   }
-  
+
   getUnreadMessageIds(chatId: number) {
     const countFreshMessages = this._dc.getFreshMessageCount(chatId)
     log.debug(`getUnreadMessageIds: countFreshMessages: ${countFreshMessages}`)
@@ -113,22 +111,25 @@ export default class DCMessageList extends SplitOut {
     const messageIds = this._dc.getChatMessages(chatId, 0, 0)
 
     let foundFreshMessages = 0
-    let unreadMessageIds: number[] = []
-    for(let i = messageIds.length -1; i >= 0; i--) {
+    const unreadMessageIds: number[] = []
+    for (let i = messageIds.length - 1; i >= 0; i--) {
       const messageId = messageIds[i]
 
       const state = this._dc.getMessage(messageId).getState().state
-      const isFresh = state === C.DC_STATE_IN_FRESH || state === C.DC_STATE_IN_NOTICED
-       log.debug(`getUnreadMessageIds: messageId: ${messageId} isFresh: ${isFresh}`)
+      const isFresh =
+        state === C.DC_STATE_IN_FRESH || state === C.DC_STATE_IN_NOTICED
+      log.debug(
+        `getUnreadMessageIds: messageId: ${messageId} isFresh: ${isFresh}`
+      )
       if (!isFresh) continue
-        
+
       foundFreshMessages++
       unreadMessageIds.unshift(messageId)
 
       if (foundFreshMessages >= countFreshMessages) {
         break
       }
-    } 
+    }
 
     return unreadMessageIds
   }
@@ -173,7 +174,6 @@ export default class DCMessageList extends SplitOut {
   }
 
   _messageToJson(msg: Message): MessageType {
-
     const file = msg.getFile()
     const filemime = msg.getFilemime()
     const filename = msg.getFilename()
@@ -187,14 +187,11 @@ export default class DCMessageList extends SplitOut {
       | 'outgoing'
       | 'incoming'
 
-      
-    
-
     const attachment: MessageTypeAttachment = file && {
       url: file,
       contentType: convertContentType({
         filemime,
-        viewType: viewType as unknown as number,
+        viewType: (viewType as unknown) as number,
         file: file,
       }),
       fileName: filename || msg.getText(),
@@ -209,10 +206,9 @@ export default class DCMessageList extends SplitOut {
         messageId: quotedMessage.getId(),
         text: quotedMessage.getText(),
         displayName: _contact.getDisplayName(),
-        displayColor: _contact.color
+        displayColor: _contact.color,
       }
     }
-    
 
     return {
       id: msg.getId(),
@@ -265,7 +261,9 @@ export default class DCMessageList extends SplitOut {
   }
 
   getMessageIds(chatId: number, marker1Before?: number) {
-    log.debug(`getMessageIds: chatId: ${chatId} marker1Before: ${marker1Before}`)
+    log.debug(
+      `getMessageIds: chatId: ${chatId} marker1Before: ${marker1Before}`
+    )
     const messageIds = this._dc.getChatMessages(
       chatId,
       C.DC_GCM_ADDDAYMARKER,
@@ -273,52 +271,57 @@ export default class DCMessageList extends SplitOut {
     )
     return messageIds
   }
-  async getMessages(chatId: number, indexStart: number, indexEnd: number, marker1Before?: number): Promise<Message2[]> {
+  async getMessages(
+    chatId: number,
+    indexStart: number,
+    indexEnd: number,
+    marker1Before?: number
+  ): Promise<Message2[]> {
     log.debug(`getMessages: chatId: ${chatId} marker1Before: ${marker1Before}`)
     const messageIds = this.getMessageIds(chatId, marker1Before)
 
-    let length = indexEnd - indexStart
-    let messages: Message2[] = new Array(length + 1)
+    const length = indexEnd - indexStart
+    const messages: Message2[] = new Array(length + 1)
     for (let i = 0; i <= length; i++) {
       const messageIndex = indexStart + i
       const messageId = messageIds[messageIndex]
-      
-      let messageObject: Message2 = null;
+
+      let messageObject: Message2 = null
       if (messageId == C.DC_MSG_ID_DAYMARKER) {
         const nextMessageIndex = messageIndex + 1
         const nextMessageId = messageIds[nextMessageIndex]
-        const nextMessageTimestamp = this._dc.getMessage(nextMessageId).getTimestamp()
+        const nextMessageTimestamp = this._dc
+          .getMessage(nextMessageId)
+          .getTimestamp()
         messageObject = {
           type: MessageType2.DayMarker,
           message: {
-            timestamp: nextMessageTimestamp
-          }
+            timestamp: nextMessageTimestamp,
+          },
         }
       } else if (messageId === C.DC_MSG_ID_MARKER1) {
         messageObject = {
           type: MessageType2.MarkerOne,
-          message: null
+          message: null,
         }
-
       } else if (messageId <= C.DC_MSG_ID_LAST_SPECIAL) {
-        log.debug(`getMessages: not sure what do with this messageId: ${messageId}, skipping`)
-        
+        log.debug(
+          `getMessages: not sure what do with this messageId: ${messageId}, skipping`
+        )
       } else {
         const msg = this._dc.getMessage(messageId)
-        if(msg) {
+        if (msg) {
           const message = this._messageToJson(msg)
           messageObject = {
             type: MessageType2.Message,
-            message
+            message,
           }
-
         }
       }
-      
+
       messages[i] = messageObject
     }
     return messages
-
   }
 
   markSeenMessages(messageIds: number[]) {

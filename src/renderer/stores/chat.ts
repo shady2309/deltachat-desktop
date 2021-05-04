@@ -1,11 +1,10 @@
 import { ipcBackend, saveLastChatId } from '../ipc'
 import { Store, useStore } from './store'
-import { JsonContact, FullChat, MessageType } from '../../shared/shared-types'
+import { JsonContact, FullChat } from '../../shared/shared-types'
 import { DeltaBackend } from '../delta-remote'
 import { runtime } from '../runtime'
 import { ActionEmitter, KeybindAction } from '../keybindings'
 import { selectChat } from '../components/helpers/ChatMethods'
-
 
 class state implements FullChat {
   contactIds: number[]
@@ -61,7 +60,7 @@ chatStore.attachReducer(({ type, payload, id }, state) => {
   return state
 })
 
-chatStore.attachEffect(async ({ type, payload }, state) => {
+chatStore.attachEffect(async ({ type, payload }, _state) => {
   if (type === 'SELECT_CHAT') {
     const chatId = payload
     // these methods were called in backend before
@@ -100,7 +99,6 @@ chatStore.attachEffect(async ({ type, payload }, state) => {
   }
 })
 
-
 ipcBackend.on('ClickOnNotification', (_ev, { chatId }) => {
   selectChat(chatId)
 })
@@ -110,7 +108,6 @@ export const useChatStore2 = () => {
   const [selectedChat, chatStoreDispatch] = useStore(chatStore)
   return { selectedChat, chatStoreDispatch }
 }
-
 
 export default chatStore
 

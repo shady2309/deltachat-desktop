@@ -1,4 +1,4 @@
-import { DeltaBackend, sendMessageParams } from '../../delta-remote'
+import { DeltaBackend } from '../../delta-remote'
 import { C } from 'deltachat-node/dist/constants'
 import React from 'react'
 import ReactDOMServer from 'react-dom/server'
@@ -14,7 +14,6 @@ import { Slider, Button, Collapse } from '@blueprintjs/core'
 import PopupMessage from './PopupMessage'
 import * as SessionStorage from '../helpers/SessionStorage'
 import { SettingsContext } from '../../contexts'
-import chatStore from '../../stores/chat'
 
 import { state as LocationStoreState } from '../../stores/locations'
 
@@ -22,11 +21,10 @@ import ContextMenu from './ContextMenu'
 import {
   FullChat,
   MessageType,
-  JsonMessage,
   JsonContact,
   JsonLocations,
 } from '../../../shared/shared-types'
-import { selectChat, sendMessage } from '../helpers/ChatMethods'
+import { sendMessage } from '../helpers/ChatMethods'
 
 type MapData = {
   contact: JsonContact
@@ -452,10 +450,7 @@ export default class MapComponent extends React.Component<
       return
     }
     const latLng = Object.assign({}, this.poiLocation)
-    sendMessage(
-      selectedChat.id,
-      { text: message, location: latLng }
-    )
+    sendMessage(selectedChat.id, { text: message, location: latLng })
 
     if (this.contextMenuPopup) {
       this.contextMenuPopup.remove()

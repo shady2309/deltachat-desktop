@@ -156,7 +156,8 @@ export interface MessageTypeAttachment {
   fileSize: string
 }
 
-export type MessageState = C.DC_STATE_IN_FRESH 
+export type MessageState =
+  | C.DC_STATE_IN_FRESH
   | C.DC_STATE_IN_NOTICED
   | C.DC_STATE_OUT_DELIVERED
   | C.DC_STATE_OUT_DRAFT
@@ -165,7 +166,8 @@ export type MessageState = C.DC_STATE_IN_FRESH
   | C.DC_STATE_OUT_PENDING
   | C.DC_STATE_OUT_PREPARING
 
-export type MessageStateString = 'error'
+export type MessageStateString =
+  | 'error'
   | 'sending'
   | 'draft'
   | 'delivered'
@@ -173,8 +175,8 @@ export type MessageStateString = 'error'
   | ''
 
 export type MessageQuote = {
-  messageId: number,
-  text: string,
+  messageId: number
+  text: string
   displayName: string
   displayColor: string
 } | null
@@ -182,36 +184,36 @@ export type MessageQuote = {
 export interface MessageType {
   id: number
   msg: {
-    chatId: number;
-    duration: number;
-    file: string;
-    fromId: number;
-    id: number;
-    quote: MessageQuote 
-    receivedTimestamp: number;
-    sortTimestamp: number;
-    text: string;
-    timestamp: number;
-    hasLocation: boolean;
-    viewType: any;
-    hasDeviatingTimestamp: any;
-    showPadlock: boolean;
+    chatId: number
+    duration: number
+    file: string
+    fromId: number
+    id: number
+    quote: MessageQuote
+    receivedTimestamp: number
+    sortTimestamp: number
+    text: string
+    timestamp: number
+    hasLocation: boolean
+    viewType: any
+    hasDeviatingTimestamp: any
+    showPadlock: boolean
     summary: {
-        state: number;
-        text1: string;
-        text1Meaning: string;
-        text2: string;
-        timestamp: number;
-    };
-    isSetupmessage: boolean;
-    isInfo: boolean;
-    isForwarded: boolean;
+      state: number
+      text1: string
+      text1Meaning: string
+      text2: string
+      timestamp: number
+    }
+    isSetupmessage: boolean
+    isInfo: boolean
+    isForwarded: boolean
     dimensions: {
-        height: number;
-        width: number;
-    };
-    videochatType: number;
-    videochatUrl: string;
+      height: number
+      width: number
+    }
+    videochatType: number
+    videochatUrl: string
     sentAt: number
     receivedAt: number
     direction: 'outgoing' | 'incoming'

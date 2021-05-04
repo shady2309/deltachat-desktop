@@ -1,5 +1,4 @@
 import DeltaChat, { C, ChatList } from 'deltachat-node'
-import { app } from 'electron'
 import { getLogger } from '../../shared/logger'
 import {
   ChatListItemType,
@@ -218,26 +217,7 @@ export default class DCChatList extends SplitOut {
     this._controller.sendToRenderer('DD_EVENT_CHATLIST_UPDATED')
   }
 }
-// section: Internal functions
-// TODO: Delete
-function mapCoreMsgStatus2String(state: number) {
-  switch (state) {
-    case C.DC_STATE_OUT_FAILED:
-      return 'error'
-    case C.DC_STATE_OUT_PENDING:
-      return 'sending'
-    case C.DC_STATE_OUT_PREPARING:
-      return 'sending'
-    case C.DC_STATE_OUT_DRAFT:
-      return 'draft'
-    case C.DC_STATE_OUT_DELIVERED:
-      return 'delivered'
-    case C.DC_STATE_OUT_MDN_RCVD:
-      return 'read'
-    default:
-      return '' // to display no icon on unknown state
-  }
-}
+
 function isGroupChat(chat: JsonChat) {
   return chat && chat.type === C.DC_CHAT_TYPE_GROUP
 }

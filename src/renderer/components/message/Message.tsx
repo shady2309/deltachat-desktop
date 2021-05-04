@@ -8,7 +8,7 @@ import {
   openMessageHTML,
   deleteMessageWithConfirm,
 } from './messageFunctions'
-import React, { useContext, useState, useEffect } from 'react'
+import React, { useContext } from 'react'
 
 import classNames from 'classnames'
 import MessageBody from './MessageBody'
@@ -24,16 +24,17 @@ import {
 } from '../../../shared/shared-types'
 import { isGenericAttachment } from '../attachment/Attachment'
 import { useTranslationFunction, ScreenContext } from '../../contexts'
-import { joinCall, jumpToMessage, openViewProfileDialog } from '../helpers/ChatMethods'
+import {
+  joinCall,
+  jumpToMessage,
+  openViewProfileDialog,
+} from '../helpers/ChatMethods'
 import { C } from 'deltachat-node/dist/constants'
-// import { getLogger } from '../../../shared/logger'
 import { useChatStore2, ChatStoreDispatch } from '../../stores/chat'
-import { DeltaBackend } from '../../delta-remote'
 import { runtime } from '../../runtime'
 import { AvatarFromContact } from '../Avatar'
 import { openDeadDropDecisionDialog } from '../dialogs/DeadDrop'
 import moment from 'moment'
-// const log = getLogger('renderer/message')
 
 const Avatar = (
   contact: DCContact,
@@ -220,7 +221,11 @@ function buildContextMenu(
     // Delete message
     {
       label: tx('delete_message_desktop'),
-      action: deleteMessageWithConfirm.bind(null, message.msg, chatStoreDispatch),
+      action: deleteMessageWithConfirm.bind(
+        null,
+        message.msg,
+        chatStoreDispatch
+      ),
     },
     // showRetry && {
     //   label:tx('retry_send'),
@@ -352,8 +357,6 @@ const Message = (props: {
     )
   }
 
-  const longMessage = /\[.{3}\]$/.test(text)
-
   const hasQuote = message.msg.quote !== null
 
   return (
@@ -399,11 +402,7 @@ const Message = (props: {
           })}
           onClick={onClickMessageBody}
         >
-          {hasQuote && (
-            <Quote
-              quote={message.msg.quote}
-            />
-          )}
+          {hasQuote && <Quote quote={message.msg.quote} />}
           {attachment && !isSetupmessage && (
             <Attachment
               {...{
@@ -443,21 +442,14 @@ const Message = (props: {
 
 export default Message
 
-export const Quote = ({
-  quote
-}: {
-  quote: MessageQuote
-}) => {
+export const Quote = ({ quote }: { quote: MessageQuote }) => {
   return (
     <div
       className='quote has-message'
       style={{ borderLeftColor: quote.displayColor }}
       onClick={() => jumpToMessage(quote.messageId)}
     >
-      <div
-        className='quote-author'
-        style={{ color: quote.displayColor }}
-      >
+      <div className='quote-author' style={{ color: quote.displayColor }}>
         {quote.displayName}
       </div>
       <p>{quote.text}</p>
@@ -488,7 +480,9 @@ export function UnreadMessagesMarker(props: { count: number }) {
   return (
     <div className='info-message'>
       <p style={{ textTransform: 'capitalize' }}>
-        {tx('chat_n_new_messages', String(count), { quantity: count ===1 ? 'one' : 'other'})}
+        {tx('chat_n_new_messages', String(count), {
+          quantity: count === 1 ? 'one' : 'other',
+        })}
       </p>
     </div>
   )

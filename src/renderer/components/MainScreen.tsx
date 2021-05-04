@@ -33,8 +33,6 @@ import { Avatar } from './Avatar'
 import OfflineToast from './OfflineToast'
 import { C } from 'deltachat-node/dist/constants'
 import MapComponent from './map/MapComponent'
-import { MessageListStore } from '../stores/messagelist'
-import { MessageViewType } from 'deltachat-node'
 
 enum View {
   MessageList,
@@ -56,7 +54,7 @@ export default function MainScreen() {
   )
 
   const screenContext = useContext(ScreenContext)
-  const [selectedChat, chatStoreDispatch] = useChatStore()
+  const [selectedChat, _chatStoreDispatch] = useChatStore()
 
   const onChatClick = (chatId: number) => {
     if (chatId === C.DC_CHAT_ID_ARCHIVED_LINK) return setShowArchivedChats(true)
@@ -245,24 +243,29 @@ export default function MainScreen() {
   )
 }
 
+function MessageListView({
+  selectedChat,
+  view,
+}: {
+  selectedChat: any
+  view: View
+}) {
+  const tx = useTranslationFunction()
 
-function MessageListView({selectedChat, view}: {selectedChat: any, view: View}) {
-    const tx = useTranslationFunction()
- 
-    if (selectedChat.id === null) {
-      return (
-        <div className='no-chat-selected-screen'>
-          <h2>{tx('no_chat_selected_suggestion_desktop')}</h2>
-        </div>
-      )
-
-    }
+  if (selectedChat.id === null) {
     return (
-      <>
-        {view === View.Media && <Gallery chat={selectedChat} />}
-        {view === View.Map && <MapComponent selectedChat={selectedChat} />}
-        {view === View.MessageList && <MessageListAndComposer chat={selectedChat} />}
-      </>
+      <div className='no-chat-selected-screen'>
+        <h2>{tx('no_chat_selected_suggestion_desktop')}</h2>
+      </div>
     )
-
+  }
+  return (
+    <>
+      {view === View.Media && <Gallery chat={selectedChat} />}
+      {view === View.Map && <MapComponent selectedChat={selectedChat} />}
+      {view === View.MessageList && (
+        <MessageListAndComposer chat={selectedChat} />
+      )}
+    </>
+  )
 }

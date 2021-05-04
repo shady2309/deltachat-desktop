@@ -29,7 +29,11 @@ import { ipcBackend } from '../../ipc'
 import { ScreenContext } from '../../contexts'
 import { KeybindAction, useKeyBindingAction } from '../../keybindings'
 import { getLogger } from '../../../shared/logger'
-import { jumpToMessage, openViewProfileDialog, selectChat } from '../helpers/ChatMethods'
+import {
+  jumpToMessage,
+  openViewProfileDialog,
+  selectChat,
+} from '../helpers/ChatMethods'
 
 const log = getLogger('renderer/chatlist')
 
@@ -123,7 +127,6 @@ export default function ChatList(props: {
     selectChat(chatId)
   }
   const screenContext = useContext(ScreenContext)
-  const { openDialog } = screenContext
 
   // divider height ------------
 
@@ -306,7 +309,7 @@ export default function ChatList(props: {
                   >
                     {({ index, key, style }) => {
                       const msrId = messageResultIds[index]
-                      
+
                       return (
                         <div style={style} key={key}>
                           {messageCache[msrId] ? (

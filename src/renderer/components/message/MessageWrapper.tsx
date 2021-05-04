@@ -10,35 +10,50 @@ type RenderMessageProps = {
   key2: string
   message: MessageType
   conversationType: 'group' | 'direct'
-  isDeviceChat: boolean 
+  isDeviceChat: boolean
   unreadMessageInViewIntersectionObserver: React.MutableRefObject<any>
 }
-     
+
 export const MessageWrapper = (props: RenderMessageProps) => {
   const state = props.message.msg.state
-  const shouldInViewObserve = state === C.DC_STATE_IN_FRESH || state === C.DC_STATE_IN_NOTICED
+  const shouldInViewObserve =
+    state === C.DC_STATE_IN_FRESH || state === C.DC_STATE_IN_NOTICED
 
   useLayoutEffect(() => {
     if (!shouldInViewObserve) return
 
-    log.debug(`MessageWrapper: key: ${props.key2} We should observe this message if in view`)
-    
+    log.debug(
+      `MessageWrapper: key: ${props.key2} We should observe this message if in view`
+    )
+
     const messageBottomElement = document.querySelector('#bottom-' + props.key2)
     if (!messageBottomElement) {
-      log.error(`MessageWrapper: key: ${props.key2} couldn't find dom element. Returning`)
+      log.error(
+        `MessageWrapper: key: ${props.key2} couldn't find dom element. Returning`
+      )
       return
     }
-    if (!props.unreadMessageInViewIntersectionObserver.current || !props.unreadMessageInViewIntersectionObserver.current.observe) {
-      log.error(`MessageWrapper: key: ${props.key2} unreadMessageInViewIntersectionObserver is null. Returning`)
+    if (
+      !props.unreadMessageInViewIntersectionObserver.current ||
+      !props.unreadMessageInViewIntersectionObserver.current.observe
+    ) {
+      log.error(
+        `MessageWrapper: key: ${props.key2} unreadMessageInViewIntersectionObserver is null. Returning`
+      )
       return
     }
-    
-    props.unreadMessageInViewIntersectionObserver.current.observe(messageBottomElement)
+
+    props.unreadMessageInViewIntersectionObserver.current.observe(
+      messageBottomElement
+    )
     log.debug(`MessageWrapper: key: ${props.key2} Successfully observing ;)`)
-    
-    return () => props.unreadMessageInViewIntersectionObserver.current.unobserve(messageBottomElement)
+
+    return () =>
+      props.unreadMessageInViewIntersectionObserver.current.unobserve(
+        messageBottomElement
+      )
   }, [])
-  
+
   return (
     <li id={props.key2}>
       <RenderMessage {...props} />

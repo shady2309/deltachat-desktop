@@ -3,7 +3,10 @@ import classNames from 'classnames'
 import Timestamp from '../conversations/Timestamp'
 import { isImage, isVideo, hasAttachment } from '../attachment/Attachment'
 import { i18nContext } from '../../contexts'
-import { MessageTypeAttachment, MessageState } from '../../../shared/shared-types'
+import {
+  MessageTypeAttachment,
+  MessageState,
+} from '../../../shared/shared-types'
 import { mapCoreMsgStatus2String } from '../helpers/MapMsgStatus'
 
 export default class MessageMetaData extends React.Component<{
@@ -66,7 +69,9 @@ export default class MessageMetaData extends React.Component<{
               <div
                 className={classNames('status-icon', messageStateString)}
                 aria-label={tx(`a11y_delivery_status_${messageStateString}`)}
-                onClick={messageStateString === 'error' ? onClickError : undefined}
+                onClick={
+                  messageStateString === 'error' ? onClickError : undefined
+                }
               />
             ) : null}
           </div>
