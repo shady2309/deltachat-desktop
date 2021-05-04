@@ -3,10 +3,9 @@ import { getLogger } from '../../shared/logger'
 import { MessageType, MessageState, Message } from '../../shared/shared-types'
 import { DeltaBackend, sendMessageParams } from '../delta-remote'
 import { ipcBackend } from '../ipc'
-import {
+import Store, {
   Action,
   OnlyDispatchIfCurrentlyDispatchedCounterEqualsZero,
-  Store,
 } from './store2'
 
 export const PAGE_SIZE = 20

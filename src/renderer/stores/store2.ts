@@ -65,7 +65,10 @@ export function OnlySetStateIfIncrementingDispatchedCounterDidntIncrease(
   return true
 }
 
-export class Store<S> {
+// A store focused on tight communication between store and render cycle.
+// This stores allows sending "effects" to the component that can be executed
+// after the store updated. Respectively on useEffect or useLayoutEffect.
+export default class Store2<S> {
   private listeners: StoreListener<S>[] = []
   private effects: { [key: string]: EffectInterface<S> } = {}
   private _log: ReturnType<typeof getLogger>
