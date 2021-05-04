@@ -62,11 +62,6 @@ export class Store<S> {
     }
   }
 
-  dispatch2(type: string, payload: any, id: number) {
-    const action: Action = { type, payload, id }
-    return this.dispatch(action)
-  }
-
   subscribe(listener: (state: S) => void) {
     this.listeners.push(listener)
     return this.unsubscribe.bind(this, listener)
