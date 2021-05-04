@@ -232,7 +232,6 @@ export class Store<S> {
     onLayoutAction?: (action: Action) => void,
     beforeSetState?: () => void
   ): S {
-    console.log(this)
     const [state, _setState] = useState(this.getState())
     const [forceTriggerEffect, setForceTriggerEffect] = useState(false)
     const effectQueue = useRef<Action[]>([])
@@ -258,7 +257,6 @@ export class Store<S> {
 
       while (effectQueue.current.length > 0) {
         const effect = effectQueue.current.pop()
-        console.log(effect)
         if (effect.type === 'DECREASE_CURRENTLY_DISPATCHED_COUNTER') {
           this.currentlyDispatchedCounter--
           this.log.debug(
