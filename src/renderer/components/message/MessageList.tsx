@@ -6,14 +6,14 @@ import {
 } from '../../stores/messagelist'
 import { Action } from '../../stores/store2'
 import { MessageWrapper } from './MessageWrapper'
-import type {
-  Message2,
-  MessageDayMarker,
+import {
   MessageType,
+  MessageDayMarker,
+  Message,
+  MessageTypeIs,
 } from '../../../shared/shared-types'
 import { getLogger } from '../../../shared/logger'
 import { DayMarkerInfoMessage, UnreadMessagesMarker } from './Message'
-import { MessageType2 } from '../../../shared/shared'
 import { ChatStoreState } from '../../stores/chat'
 import { C } from 'deltachat-node/dist/constants'
 import { jumpToMessage } from '../helpers/ChatMethods'
@@ -661,7 +661,7 @@ const MessageList = React.memo(function MessageList({
       key: string,
       messageId: MessageId,
       messageIndex: number,
-      message: Message2
+      message: MessageType
     ) => JSX.Element
   ) => {
     return messageListStore.pageOrdering.map((pageKey: string) => {
@@ -689,16 +689,16 @@ const MessageList = React.memo(function MessageList({
             ref={messageListTopRef}
           />
           {iterateMessages((key, messageId, messageIndex, message) => {
-            if (message.type === MessageType2.DayMarker) {
+            if (message.type === MessageTypeIs.DayMarker) {
               return (
                 <ul key={key} id={key}>
                   <DayMarkerInfoMessage
                     key={key}
-                    timestamp={(message.message as MessageDayMarker).timestamp}
+                    timestamp={(message as MessageDayMarker).timestamp}
                   />
                 </ul>
               )
-            } else if (message.type === MessageType2.MarkerOne) {
+            } else if (message.type === MessageTypeIs.MarkerOne) {
               return (
                 <ul key={key} id={key}>
                   <UnreadMessagesMarker
@@ -707,13 +707,13 @@ const MessageList = React.memo(function MessageList({
                   />
                 </ul>
               )
-            } else if (message.type === MessageType2.Message) {
+            } else if (message.type === MessageTypeIs.Message) {
               return (
                 <ul key={key} id={key}>
                   <MessageWrapper
                     key={key}
                     key2={key}
-                    message={message.message as MessageType}
+                    message={message as Message}
                     conversationType={
                       chat.type === C.DC_CHAT_TYPE_GROUP ? 'group' : 'direct'
                     }
@@ -804,7 +804,7 @@ export function MessagePage({
     key: string,
     messageId: MessageId,
     messageIndex: number,
-    message: Message2
+    message: MessageType
   ) => JSX.Element
 }) {
   const firstMessageIdIndex = page.firstMessageIdIndex
@@ -812,7 +812,7 @@ export function MessagePage({
     <div className={'message-list-page'} id={page.key} key={page.key}>
       {page.messageIds.map((messageId: MessageId, index) => {
         const messageIndex = firstMessageIdIndex + index
-        const message: Message2 = page.messages[index]
+        const message: MessageType = page.messages[index]
         if (message === null) return null
         const messageKey = calculateMessageKey(
           page.key,

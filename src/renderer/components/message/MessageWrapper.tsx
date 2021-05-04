@@ -1,23 +1,22 @@
 import React, { useLayoutEffect } from 'react'
-import Message from './Message'
-import { MessageType } from '../../../shared/shared-types'
-import { C } from 'deltachat-node/dist/constants'
+import MessageComponent from './Message'
+import { Message, MessageState } from '../../../shared/shared-types'
 import { getLogger } from '../../../shared/logger'
 
 const log = getLogger('renderer/message/MessageWrapper')
 
 type RenderMessageProps = {
   key2: string
-  message: MessageType
+  message: Message
   conversationType: 'group' | 'direct'
   isDeviceChat: boolean
   unreadMessageInViewIntersectionObserver: React.MutableRefObject<any>
 }
 
 export const MessageWrapper = (props: RenderMessageProps) => {
-  const state = props.message.msg.state
+  const state = props.message.state
   const shouldInViewObserve =
-    state === C.DC_STATE_IN_FRESH || state === C.DC_STATE_IN_NOTICED
+    state === MessageState.IN_FRESH || state === MessageState.IN_NOTICED
 
   useLayoutEffect(() => {
     if (!shouldInViewObserve) return
@@ -62,7 +61,10 @@ export const MessageWrapper = (props: RenderMessageProps) => {
   )
 }
 
-export const RenderMessage = React.memo(Message, (prevProps, nextProps) => {
-  const areEqual = prevProps.message === nextProps.message
-  return areEqual
-})
+export const RenderMessage = React.memo(
+  MessageComponent,
+  (prevProps, nextProps) => {
+    const areEqual = prevProps.message === nextProps.message
+    return areEqual
+  }
+)

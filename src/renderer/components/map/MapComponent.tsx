@@ -20,7 +20,7 @@ import { state as LocationStoreState } from '../../stores/locations'
 import ContextMenu from './ContextMenu'
 import {
   FullChat,
-  MessageType,
+  Message,
   JsonContact,
   JsonLocations,
 } from '../../../shared/shared-types'
@@ -399,7 +399,7 @@ export default class MapComponent extends React.Component<
   }
 
   async onMapClick(event: mapboxgl.MapMouseEvent & mapboxgl.EventData) {
-    let message: MessageType['msg']
+    let message: Message
     const features = this.map.queryRenderedFeatures(event.point)
     const contactFeature = features.find(f => {
       return f.properties.contact !== undefined || f.properties.isPoi
@@ -409,9 +409,9 @@ export default class MapComponent extends React.Component<
         DeltaBackend.call(
           'messageList.getMessage',
           contactFeature.properties.msgId
-        ).then((messageObj: MessageType) => {
+        ).then((messageObj: Message) => {
           if (messageObj) {
-            message = messageObj.msg
+            message = messageObj
           }
           const markup = this.renderPopupMessage(
             contactFeature.properties.contact,
@@ -572,7 +572,7 @@ export default class MapComponent extends React.Component<
   renderPopupMessage(
     contactName: string,
     formattedDate: string,
-    message: MessageType['msg']
+    message: Message
   ) {
     return ReactDOMServer.renderToStaticMarkup(
       <PopupMessage

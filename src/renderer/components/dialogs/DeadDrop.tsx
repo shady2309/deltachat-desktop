@@ -13,8 +13,8 @@ import { deleteMessage, selectChat } from '../helpers/ChatMethods'
  */
 export default function DeadDrop(props: {
   contact: DCContact
-  msg: MessageType['msg']
   chat: FullChat
+  message: Message
   onClose: DialogProps['onClose']
 }) {
   const { contact, msg, chat, onClose } = props
@@ -49,7 +49,7 @@ export default function DeadDrop(props: {
     }
   const never = () => {
     DeltaBackend.call('contacts.blockContact', contact.id)
-    deleteMessage(msg.id)
+    deleteMessage(message.id)
     onClose()
   }
 
@@ -60,7 +60,7 @@ export default function DeadDrop(props: {
   }
 
   const yes = async () => {
-    const messageId = msg.id
+    const messageId = message.id
     const contactId = contact.id
     const chatId = await DeltaBackend.call('contacts.acceptContactRequest', {
       messageId,

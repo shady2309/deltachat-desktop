@@ -13,7 +13,7 @@ import { getLogger } from '../../../shared/logger'
 import { EmojiAndStickerPicker } from './EmojiAndStickerPicker'
 import { EmojiData, BaseEmoji } from 'emoji-mart'
 import { replaceColonsSafe } from '../conversations/emoji'
-import { MessageType } from '../../../shared/shared-types'
+import { Message } from '../../../shared/shared-types'
 import { Quote } from '../message/Message'
 import { DeltaBackend } from '../../delta-remote'
 import { DraftAttachment } from '../attachment/messageAttachment'
@@ -237,7 +237,7 @@ const Composer = forwardRef<
 export default Composer
 
 type draftObject = Pick<
-  MessageType['msg'],
+  Message,
   'chatId' | 'text' | 'file' | 'attachment' | 'viewType' | 'quote'
 >
 
@@ -274,13 +274,13 @@ export function useDraft(
       } else {
         _setDraft(old => ({
           ...old,
-          text: newDraft.msg.text,
-          file: newDraft.msg.file,
-          attachment: newDraft.msg.attachment,
-          viewType: newDraft.msg.viewType,
-          quote: newDraft.msg.quote,
+          text: newDraft.text,
+          file: newDraft.file,
+          attachment: newDraft.attachment,
+          viewType: newDraft.viewType,
+          quote: newDraft.quote,
         }))
-        inputRef.current?.setText(newDraft.msg.text)
+        inputRef.current?.setText(newDraft.text)
       }
     })
   }, [chatId])
@@ -302,10 +302,10 @@ export function useDraft(
     if (newDraft) {
       _setDraft(old => ({
         ...old,
-        file: newDraft.msg.file,
-        attachment: newDraft.msg.attachment,
-        viewType: newDraft.msg.viewType,
-        quote: newDraft.msg.quote,
+        file: newDraft.file,
+        attachment: newDraft.attachment,
+        viewType: newDraft.viewType,
+        quote: newDraft.quote,
       }))
       // don't load text to prevent bugging back
     } else {
@@ -357,11 +357,11 @@ export function useDraft(
       )
       const contact = await DeltaBackend.call(
         'contacts.getContact',
-        message.msg.fromId
+        message.fromId
       )
       draftRef.current.quote = {
         messageId,
-        text: message.msg.text,
+        text: message.text,
         displayName: contact.displayName,
         displayColor: contact.color,
       }

@@ -51,7 +51,7 @@ const Message = React.memo(
           {summary.text1 !== null && (
             <div
               className={classNames('summary', {
-                draft: summary.state === (C.DC_STATE_OUT_DRAFT as MessageState),
+                draft: summary.state === MessageState.OUT_DRAFT,
               })}
             >
               {summary.text1 + ': '}

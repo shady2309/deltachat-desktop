@@ -1,4 +1,4 @@
-import { C } from 'deltachat-node'
+import { C, Message as MessageNode } from 'deltachat-node'
 
 // @ts-ignore
 import binding from 'deltachat-node/binding'
@@ -10,18 +10,17 @@ import filesizeConverter from 'filesize'
 import mime from 'mime-types'
 
 import SplitOut from './splitout'
-import { Message } from 'deltachat-node'
 import {
-  MessageType,
+  Message,
   MessageSearchResult,
-  MessageTypeAttachment,
-  Message2,
+  MessageAttachment,
+  MessageType,
   MessageQuote,
+  MessageTypeIs,
 } from '../../shared/shared-types'
 
 import { writeFile } from 'fs-extra'
 import tempy from 'tempy'
-import { MessageType2 } from '../../shared/shared'
 export default class DCMessageList extends SplitOut {
   sendMessage(
     chatId: number,
@@ -36,7 +35,7 @@ export default class DCMessageList extends SplitOut {
       location?: { lat: number; lng: number }
       quoteMessageId?: number
     }
-  ): [number, Message2] {
+  ): [number, MessageType] {
     const viewType = filename ? C.DC_MSG_FILE : C.DC_MSG_TEXT
     const msg = this._dc.messageNew(viewType)
     if (filename) msg.setFile(filename, undefined)
@@ -53,10 +52,8 @@ export default class DCMessageList extends SplitOut {
     }
 
     const messageId = this._dc.sendMessage(chatId, msg)
-    const _msg = this._dc.getMessage(messageId)
-    const message = _msg
-      ? { type: MessageType2.Message, message: this._messageToJson(_msg) }
-      : null
+    const _msg: MessageNode = this._dc.getMessage(messageId)
+    const message = _msg ? this._messageToJson(_msg) : null
     return [messageId, message]
   }
 
@@ -134,7 +131,7 @@ export default class DCMessageList extends SplitOut {
     return unreadMessageIds
   }
 
-  async getDraft(chatId: number): Promise<MessageType | null> {
+  async getDraft(chatId: number): Promise<Message> {
     const draft = this._dc.getDraft(chatId)
     return draft ? this._messageToJson(draft) : null
   }
@@ -173,7 +170,7 @@ export default class DCMessageList extends SplitOut {
     return this._messageToJson(msg)
   }
 
-  _messageToJson(msg: Message): MessageType {
+  _messageToJson(msg: MessageNode): Message {
     const file = msg.getFile()
     const filemime = msg.getFilemime()
     const filename = msg.getFilename()
@@ -187,7 +184,7 @@ export default class DCMessageList extends SplitOut {
       | 'outgoing'
       | 'incoming'
 
-    const attachment: MessageTypeAttachment = file && {
+    const attachment: MessageAttachment = file && {
       url: file,
       contentType: convertContentType({
         filemime,
@@ -211,47 +208,43 @@ export default class DCMessageList extends SplitOut {
     }
 
     return {
+      type: MessageTypeIs.Message,
       id: msg.getId(),
-      msg: {
-        chatId: msg.getChatId(),
-        duration: msg.getDuration(),
-        file: msg.getFile(),
-        fromId: msg.getFromId(),
-        id: msg.getId(),
-        quote,
-        receivedTimestamp: msg.getReceivedTimestamp(),
-        sortTimestamp: msg.getSortTimestamp(),
-        text: msg.getText(),
-        timestamp: msg.getTimestamp(),
-        hasLocation: msg.hasLocation(),
-        viewType: binding.dcn_msg_get_viewtype(msg.dc_msg),
-        state: binding.dcn_msg_get_state(msg.dc_msg),
-        hasDeviatingTimestamp: msg.hasDeviatingTimestamp(),
-        showPadlock: msg.getShowpadlock(),
-        summary: msg.getSummary().toJson(),
-        isSetupmessage: msg.isSetupmessage(),
-        isInfo: msg.isInfo(),
-        isForwarded: msg.isForwarded(),
-        dimensions: {
-          height: msg.getHeight(),
-          width: msg.getWidth(),
-        },
-        videochatType: msg.getVideochatType(),
-        videochatUrl: msg.getVideochatUrl(),
-        sentAt: msg.getTimestamp() * 1000,
-        receivedAt: msg.getReceivedTimestamp() * 1000,
-        direction,
-        attachment,
+      chatId: msg.getChatId(),
+      duration: msg.getDuration(),
+      file: msg.getFile(),
+      fromId: msg.getFromId(),
+      quote,
+      receivedTimestamp: msg.getReceivedTimestamp(),
+      sortTimestamp: msg.getSortTimestamp(),
+      text: msg.getText(),
+      timestamp: msg.getTimestamp(),
+      hasLocation: msg.hasLocation(),
+      viewType: binding.dcn_msg_get_viewtype(msg.dc_msg),
+      state: binding.dcn_msg_get_state(msg.dc_msg),
+      hasDeviatingTimestamp: msg.hasDeviatingTimestamp(),
+      showPadlock: msg.getShowpadlock(),
+      summary: msg.getSummary().toJson(),
+      isSetupmessage: msg.isSetupmessage(),
+      isInfo: msg.isInfo(),
+      isForwarded: msg.isForwarded(),
+      dimensions: {
+        height: msg.getHeight(),
+        width: msg.getWidth(),
       },
+      videochatType: msg.getVideochatType(),
+      videochatUrl: msg.getVideochatUrl(),
+      sentAt: msg.getTimestamp() * 1000,
+      receivedAt: msg.getReceivedTimestamp() * 1000,
+      direction,
+      attachment,
       filemime,
       filename,
       filesize,
-      viewType,
-      fromId,
       isMe,
       contact: (contact ? { ...contact } : {}) as any,
-      isInfo: msg.isInfo(),
       setupCodeBegin,
+      hasHTML: msg.hasHTML,
     }
   }
 
@@ -276,17 +269,17 @@ export default class DCMessageList extends SplitOut {
     indexStart: number,
     indexEnd: number,
     marker1Before?: number
-  ): Promise<Message2[]> {
+  ): Promise<MessageType[]> {
     log.debug(`getMessages: chatId: ${chatId} marker1Before: ${marker1Before}`)
     const messageIds = this.getMessageIds(chatId, marker1Before)
 
     const length = indexEnd - indexStart
-    const messages: Message2[] = new Array(length + 1)
+    const messages: MessageType[] = new Array(length + 1)
     for (let i = 0; i <= length; i++) {
       const messageIndex = indexStart + i
       const messageId = messageIds[messageIndex]
 
-      let messageObject: Message2 = null
+      let messageObject: MessageType = null
       if (messageId == C.DC_MSG_ID_DAYMARKER) {
         const nextMessageIndex = messageIndex + 1
         const nextMessageId = messageIds[nextMessageIndex]
@@ -294,15 +287,12 @@ export default class DCMessageList extends SplitOut {
           .getMessage(nextMessageId)
           .getTimestamp()
         messageObject = {
-          type: MessageType2.DayMarker,
-          message: {
-            timestamp: nextMessageTimestamp,
-          },
+          type: MessageTypeIs.DayMarker,
+          timestamp: nextMessageTimestamp,
         }
       } else if (messageId === C.DC_MSG_ID_MARKER1) {
         messageObject = {
-          type: MessageType2.MarkerOne,
-          message: null,
+          type: MessageTypeIs.MarkerOne,
         }
       } else if (messageId <= C.DC_MSG_ID_LAST_SPECIAL) {
         log.debug(
@@ -312,10 +302,7 @@ export default class DCMessageList extends SplitOut {
         const msg = this._dc.getMessage(messageId)
         if (msg) {
           const message = this._messageToJson(msg)
-          messageObject = {
-            type: MessageType2.Message,
-            message,
-          }
+          messageObject = message
         }
       }
 

@@ -11,21 +11,18 @@ import {
   getExtension,
   dragAttachmentOut,
 } from './Attachment'
-import {
-  MessageType,
-  MessageTypeAttachment,
-} from '../../../shared/shared-types'
+import { Message, MessageAttachment } from '../../../shared/shared-types'
 import { runtime } from '../../runtime'
 
 // const MINIMUM_IMG_HEIGHT = 150
 // const MAXIMUM_IMG_HEIGHT = 300
 
 type AttachmentProps = {
-  attachment: MessageTypeAttachment
+  attachment: MessageAttachment
   text?: string
   conversationType: 'group' | 'direct'
-  direction: MessageType['msg']['direction']
-  message: MessageType
+  direction: Message['direction']
+  message: Message
   hasQuote: boolean
 }
 
@@ -42,14 +39,13 @@ export default function Attachment({
     return null
   }
   const { openDialog } = useContext(ScreenContext)
-  const msg = message.msg
   const onClickAttachment = (ev: any) => {
-    if (msg.viewType === C.DC_MSG_STICKER) return
+    if (message.viewType === C.DC_MSG_STICKER) return
     ev.stopPropagation()
-    if (isDisplayableByFullscreenMedia(msg.attachment)) {
-      openDialog('FullscreenMedia', { msg })
+    if (isDisplayableByFullscreenMedia(message.attachment)) {
+      openDialog('FullscreenMedia', { message })
     } else {
-      openAttachmentInShell(msg)
+      openAttachmentInShell(message)
     }
   }
   const withCaption = Boolean(text)
@@ -57,7 +53,7 @@ export default function Attachment({
   const withContentBelow = withCaption
   const withContentAbove =
     hasQuote || (conversationType === 'group' && direction === 'incoming')
-  // const dimensions = message.msg.dimensions || {}
+  // const dimensions = message.dimensions || {}
   // Calculating height to prevent reflow when image loads
   // const height = Math.max(MINIMUM_IMG_HEIGHT, (dimensions as any).height || 0)
   if (isImage(attachment)) {
@@ -164,7 +160,7 @@ export default function Attachment({
 export function DraftAttachment({
   attachment,
 }: {
-  attachment: MessageTypeAttachment
+  attachment: MessageAttachment
 }) {
   if (!attachment) {
     return null

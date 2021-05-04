@@ -3,7 +3,7 @@ import { _callDcMethodAsync } from './ipc'
 import {
   FullChat,
   ChatListItemType,
-  MessageType,
+  Message,
   JsonLocations,
   Theme,
   DCContact,
@@ -12,7 +12,7 @@ import {
   DeltaChatAccount,
   DesktopSettings,
   QrCodeResponse,
-  Message2,
+  MessageType,
 } from '../shared/shared-types'
 import { MuteDuration } from '../shared/constants'
 import { LocaleData } from '../shared/localize'
@@ -120,7 +120,7 @@ class DeltaRemote {
     fnName: 'chat.getChatMedia',
     msgType1: number,
     msgType2: number
-  ): Promise<MessageType[]>
+  ): Promise<Message[]>
   call(fnName: 'chat.getEncryptionInfo', chatId: number): Promise<string>
   call(fnName: 'chat.getQrCode', chatId?: number): Promise<string>
   call(fnName: 'chat.leaveGroup', chatId: number): Promise<void>
@@ -214,29 +214,23 @@ class DeltaRemote {
     fnName: 'messageList.sendMessage',
     chatId: number,
     params: sendMessageParams
-  ): Promise<[number, Message2]>
+  ): Promise<[number, MessageType]>
   call(
     fnName: 'messageList.sendSticker',
     chatId: number,
     stickerPath: string
   ): Promise<void>
   call(fnName: 'messageList.deleteMessage', id: number): Promise<void>
-  call(
-    fnName: 'messageList.getMessage',
-    msgId: number
-  ): Promise<{ msg: null } | MessageType>
+  call(fnName: 'messageList.getMessage', msgId: number): Promise<Message>
   call(
     fnName: 'messageList.getMessages',
     chatId: number,
     indexStart: number,
     indexEnd: number,
     marker1Before?: number
-  ): Promise<Message2[]>
+  ): Promise<MessageType[]>
   call(fnName: 'messageList.getMessageInfo', msgId: number): Promise<string>
-  call(
-    fnName: 'messageList.getDraft',
-    chatId: number
-  ): Promise<MessageType | null>
+  call(fnName: 'messageList.getDraft', chatId: number): Promise<Message>
   call(
     fnName: 'messageList.setDraft',
     chatId: number,
@@ -246,10 +240,7 @@ class DeltaRemote {
       quotedMessageId,
     }: { text?: string; file?: string; quotedMessageId?: number }
   ): Promise<void>
-  call(
-    fnName: 'messageList.messageIdToJson',
-    id: number
-  ): Promise<{ msg: null } | MessageType>
+  call(fnName: 'messageList.messageIdToJson', id: number): Promise<Message>
   call(
     fnName: 'messageList.getMessageIds',
     chatid: number,

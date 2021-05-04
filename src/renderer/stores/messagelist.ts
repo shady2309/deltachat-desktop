@@ -1,6 +1,6 @@
 import { C } from 'deltachat-node/dist/constants'
 import { getLogger } from '../../shared/logger'
-import { Message2, MessageState, MessageType } from '../../shared/shared-types'
+import { MessageType, MessageState, Message } from '../../shared/shared-types'
 import { DeltaBackend, sendMessageParams } from '../delta-remote'
 import { ipcBackend } from '../ipc'
 import {
@@ -18,7 +18,7 @@ export type MessageIds = Array<MessageId>
 
 export class MessageListPage {
   messageIds: MessageIds
-  messages: Message2[]
+  messages: MessageType[]
   firstMessageIdIndex: number
   lastMessageIdIndex: number
   key: string
@@ -580,7 +580,7 @@ export class PageStore extends Store<PageStoreState> {
     state: PageStoreState,
     pageKey: string,
     indexOnPage: number,
-    updatedMessage: Message2
+    updatedMessage: MessageType
   ): PageStoreState {
     return {
       ...state,
@@ -702,14 +702,8 @@ export class PageStore extends Store<PageStoreState> {
       setState(
         this._updateMessage(state, pageKey, indexOnPage, {
           ...message,
-          message: {
-            ...message.message,
-            msg: {
-              ...(message.message as MessageType).msg,
-              state: C.DC_STATE_OUT_DELIVERED as MessageState,
-            },
-          },
-        })
+          state: MessageState.OUT_DELIVERED,
+        } as Message)
       )
     })
   }
@@ -740,14 +734,8 @@ export class PageStore extends Store<PageStoreState> {
       setState(
         this._updateMessage(state, pageKey, indexOnPage, {
           ...message,
-          message: {
-            ...message.message,
-            msg: {
-              ...(message.message as MessageType).msg,
-              state: C.DC_STATE_OUT_FAILED as MessageState,
-            },
-          },
-        })
+          state: MessageState.OUT_FAILED,
+        } as Message)
       )
     })
   }
@@ -778,14 +766,8 @@ export class PageStore extends Store<PageStoreState> {
       setState(
         this._updateMessage(state, pageKey, indexOnPage, {
           ...message,
-          message: {
-            ...message.message,
-            msg: {
-              ...(message.message as MessageType).msg,
-              state: C.DC_STATE_OUT_MDN_RCVD as MessageState,
-            },
-          },
-        })
+          state: MessageState.OUT_MDN_RCVD,
+        } as Message)
       )
     })
   }
@@ -811,11 +793,7 @@ export class PageStore extends Store<PageStoreState> {
 
       let update = false
       for (const messageId of messageIds) {
-        const { pageKey } = this._findPageWithMessageId(
-          state,
-          messageId,
-          true
-        )
+        const { pageKey } = this._findPageWithMessageId(state, messageId, true)
         if (pageKey === null) {
           log.debug(
             `markMessagesSeen: Couldn't find messageId in any shown pages. Returning`
