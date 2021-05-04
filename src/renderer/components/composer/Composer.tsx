@@ -78,7 +78,7 @@ const Composer = forwardRef<
   const emojiAndStickerRef = useRef<HTMLDivElement>()
   const pickerButtonRef = useRef()
 
-  const _sendMessage = () => {
+  const sendMessageAndFocusComposer = () => {
     const textareaRef = messageInputRef.current.textareaRef.current
     textareaRef.disabled = true
     try {
@@ -203,7 +203,7 @@ const Composer = forwardRef<
               <ComposerMessageInput
                 ref={messageInputRef}
                 enterKeySends={desktopSettings.enterKeySends}
-                sendMessage={_sendMessage}
+                sendMessage={sendMessageAndFocusComposer}
                 chatId={chatId}
                 updateDraftText={updateDraftText}
               />
@@ -217,7 +217,7 @@ const Composer = forwardRef<
           >
             <span />
           </div>
-          <div className='send-button-wrapper' onClick={_sendMessage}>
+          <div className='send-button-wrapper' onClick={sendMessageAndFocusComposer}>
             <button aria-label={tx('menu_send')} />
           </div>
         </div>

@@ -78,6 +78,7 @@ export default class DCMessageList extends SplitOut {
     return this._dc.getMessageInfo(msgId)
   }
 
+  // TODO: Port to core
   getFirstUnreadMessageId(chatId: number) {
     const countFreshMessages = this._dc.getFreshMessageCount(chatId)
     const messageIds = this._dc.getChatMessages(chatId, 0, 0)
@@ -100,6 +101,7 @@ export default class DCMessageList extends SplitOut {
     return firstUnreadMessageId
   }
 
+  // TODO: Port to core
   getUnreadMessageIds(chatId: number) {
     const countFreshMessages = this._dc.getFreshMessageCount(chatId)
     log.debug(`getUnreadMessageIds: countFreshMessages: ${countFreshMessages}`)
@@ -264,6 +266,8 @@ export default class DCMessageList extends SplitOut {
     )
     return messageIds
   }
+  
+  // TODO: move to nodebindings
   async getMessages(
     chatId: number,
     indexStart: number,

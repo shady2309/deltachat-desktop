@@ -18,6 +18,8 @@ export const MessageWrapper = (props: RenderMessageProps) => {
   const shouldInViewObserve =
     state === MessageState.IN_FRESH || state === MessageState.IN_NOTICED
 
+  // Add this message to unreadMessageInViewIntersectionObserver to mark this message
+  // as read if it's displayed on the screen
   useLayoutEffect(() => {
     if (!shouldInViewObserve) return
 
