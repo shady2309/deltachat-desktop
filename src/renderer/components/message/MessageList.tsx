@@ -374,10 +374,13 @@ const MessageList = React.memo(function MessageList({
         )
         return
       }
-      
-      const messageElement = document.querySelector('#' + action.payload.messageKey) as HTMLElement
 
-      messageListRef.current.scrollTop = messageElement.offsetTop + action.payload.relativeScrollPosition
+      const messageElement = document.querySelector(
+        '#' + action.payload.messageKey
+      ) as HTMLElement
+
+      messageListRef.current.scrollTop =
+        messageElement.offsetTop + action.payload.relativeScrollPosition
       log.debug(
         `SCROLL_TO_MESSAGE: restored scrollPosition to ${action.payload}`
       )
@@ -386,7 +389,10 @@ const MessageList = React.memo(function MessageList({
 
   const scrollPositionBeforeSetState = useRef(-1)
 
-  const { state: messageListStore, layoutEffectQueue: messageListLayoutEffectQueue } = MessageListStore.useStore(
+  const {
+    state: messageListStore,
+    layoutEffectQueue: messageListLayoutEffectQueue,
+  } = MessageListStore.useStore(
     onMessageListStoreEffect,
     onMessageListStoreLayoutEffect
   )
@@ -480,7 +486,9 @@ const MessageList = React.memo(function MessageList({
   const onMsgsChanged = async () => {
     if (MessageListStore.ignoreDcEventMsgsChanged > 0) {
       MessageListStore.ignoreDcEventMsgsChanged--
-      log.debug('onMsgsChanged: MessageListSotre.ignoreDcEventMsgsChanged is > 0, so we do. returning')
+      log.debug(
+        'onMsgsChanged: MessageListSotre.ignoreDcEventMsgsChanged is > 0, so we do. returning'
+      )
       return
     }
     const chatId = MessageListStore.state.chatId
@@ -544,7 +552,7 @@ const MessageList = React.memo(function MessageList({
 
       return selectChat(messageListStore.state.chatId)
     }
-    
+
     const { messageIndex: indexOfFirstMessageInView } = parseMessageKey(
       firstMessageInView.messageElement.getAttribute('id')
     )

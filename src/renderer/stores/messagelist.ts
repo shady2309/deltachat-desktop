@@ -55,7 +55,7 @@ export type DispatchesAfter = DispatchAfter[]
 
 export class PageStore extends Store<PageStoreState> {
   public currentlyLoadingPage = false
-  
+
   public ignoreDcEventMsgsChanged = 0
   updatePage(pageKey: string, updateObj: Partial<PageStoreState['pages']>) {
     return {
@@ -511,7 +511,7 @@ export class PageStore extends Store<PageStoreState> {
         'messageList.getUnreadMessageIds',
         chatId
       )
-      
+
       const firstUnreadMessageId =
         unreadMessageIds.length > 0 ? unreadMessageIds[0] : -1
       const marker1MessageId = firstUnreadMessageId || 0
@@ -522,23 +522,17 @@ export class PageStore extends Store<PageStoreState> {
         chatId,
         marker1MessageId
       )
-      
-      
 
       const lastMessageIndex = messageIds.length - 1
       const firstMessageIndex = Math.max(lastMessageIndex - PAGE_SIZE, 0)
-        
-      const {
-        pages,
-        pageOrdering,
-      } = await this._loadPageWithFirstMessageIndex(
+
+      const { pages, pageOrdering } = await this._loadPageWithFirstMessageIndex(
         chatId,
         messageIds,
         firstMessageIndex,
         lastMessageIndex,
         marker1MessageId
       )
-
 
       const newState = {
         pages,
@@ -551,7 +545,6 @@ export class PageStore extends Store<PageStoreState> {
         loading: false,
       }
 
-      
       await setState(newState)
     })
   }
@@ -655,7 +648,7 @@ export class PageStore extends Store<PageStoreState> {
     chatId: number,
     messageIds: number[],
     firstMessageOnScreenIndex: number,
-    relativeScrollPosition: number,
+    relativeScrollPosition: number
   ) {
     this.dispatch(
       'refresh',
@@ -692,10 +685,14 @@ export class PageStore extends Store<PageStoreState> {
           return
         }
 
-        const [firstMessageIndex, lastMessageIndex] = this._calculateIndexesForPageWithMessageIdInMiddle(
-          messageIds, firstMessageOnScreenIndex
+        const [
+          firstMessageIndex,
+          lastMessageIndex,
+        ] = this._calculateIndexesForPageWithMessageIdInMiddle(
+          messageIds,
+          firstMessageOnScreenIndex
         )
-        
+
         const {
           pages,
           pageOrdering,
@@ -727,14 +724,17 @@ export class PageStore extends Store<PageStoreState> {
         }
 
         if (relativeScrollPosition !== -1) {
-          const {messageKey} = this._findPageWithMessageIndex(newState, firstMessageOnScreenIndex)
+          const { messageKey } = this._findPageWithMessageIndex(
+            newState,
+            firstMessageOnScreenIndex
+          )
           this.pushLayoutEffect({
             type: 'SCROLL_TO_MESSAGE',
             payload: {
               messageKey,
-              relativeScrollPosition
+              relativeScrollPosition,
             },
-            id: state.chatId
+            id: state.chatId,
           })
         } else {
           this.pushLayoutEffect({

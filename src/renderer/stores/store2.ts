@@ -234,7 +234,7 @@ export default class Store2<S> {
     onAction?: (action: Action) => void,
     onLayoutAction?: (action: Action) => void,
     beforeSetState?: () => void
-  ): { state: S, layoutEffectQueue: React.MutableRefObject<Action[]> } {
+  ): { state: S; layoutEffectQueue: React.MutableRefObject<Action[]> } {
     const [state, _setState] = useState(this.getState())
     const [forceTriggerEffect, setForceTriggerEffect] = useState(false)
     const effectQueue = useRef<Action[]>([])
