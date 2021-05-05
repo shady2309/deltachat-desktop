@@ -266,7 +266,7 @@ export default class DCMessageList extends SplitOut {
     )
     return messageIds
   }
-  
+
   // TODO: move to nodebindings
   async getMessages(
     chatId: number,

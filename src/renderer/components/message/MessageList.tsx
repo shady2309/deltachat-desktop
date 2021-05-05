@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from 'react'
 import {
+  calculateMessageKey,
   MessageId,
   MessageListPage,
   MessageListStore,
+  parseMessageKey,
 } from '../../stores/messagelist'
 import { Action } from '../../stores/store2'
 import { MessageWrapper } from './MessageWrapper'
@@ -16,7 +18,7 @@ import { getLogger } from '../../../shared/logger'
 import { DayMarkerInfoMessage, UnreadMessagesMarker } from './Message'
 import { ChatStoreState } from '../../stores/chat'
 import { C } from 'deltachat-node/dist/constants'
-import { jumpToMessage } from '../helpers/ChatMethods'
+import { jumpToMessage, selectChat } from '../helpers/ChatMethods'
 import { ipcBackend } from '../../ipc'
 import { DeltaBackend } from '../../delta-remote'
 
@@ -86,22 +88,16 @@ function withoutBottomPages(
   return withoutPages
 }
 
-const mathInBetween = (
-  windowLow: number,
-  windowHigh: number,
-  value: number
-) => {
-  return value >= windowLow && value <= windowHigh
-}
-
 function* messagesInView(messageListRef: React.MutableRefObject<HTMLElement>) {
   const messageElements = document
     .querySelector('#message-list')
-    .querySelectorAll('ul')
+    .querySelectorAll('li')
+
   const scrollTop = messageListRef.current.scrollTop
   const messageListClientHeight = messageListRef.current.clientHeight
   const messageListOffsetTop = scrollTop
   const messageListOffsetBottom = messageListOffsetTop + messageListClientHeight
+
   for (const messageElement of messageElements) {
     const messageOffsetTop = messageElement.offsetTop
     const messageOffsetBottom = messageOffsetTop + messageElement.clientHeight
@@ -164,8 +160,7 @@ const MessageList = React.memo(function MessageList({
 
   const onMessageListStoreLayoutEffect = (action: Action) => {
     if (action.type === 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE') {
-      const scrollTop = messageListRef.current.scrollTop
-      const scrollHeight = messageListRef.current.scrollHeight
+      const { scrollTop, scrollHeight } = messageListRef.current
       log.debug(
         `SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE scrollTop: ${scrollTop} scrollHeight ${scrollHeight}`
       )
@@ -196,8 +191,7 @@ const MessageList = React.memo(function MessageList({
       action.type === 'SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE'
     ) {
       const { pageKey } = action.payload
-      const scrollTop = messageListRef.current.scrollTop
-      const scrollHeight = messageListRef.current.scrollHeight
+      const { scrollTop, scrollHeight } = messageListRef.current
       log.debug(
         `SCROLL_TO_TOP_OF_PAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE scrollTop: ${scrollTop} scrollHeight ${scrollHeight}`
       )
@@ -217,8 +211,6 @@ const MessageList = React.memo(function MessageList({
         )
         return
       }
-      // TODO: Implement check to load more
-      firstChild.setAttribute('style', 'background-color: yellow')
     } else if (
       action.type === 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE'
     ) {
@@ -246,9 +238,8 @@ const MessageList = React.memo(function MessageList({
       }
       //messageElement.setAttribute('style', 'background-color: yellow')
 
-      let scrollTop = messageListRef.current.scrollTop
-      const scrollHeight = messageListRef.current.scrollHeight
-      const clientHeight = messageListRef.current.clientHeight
+      let { scrollTop } = messageListRef.current
+      const { scrollHeight, clientHeight } = messageListRef.current
       scrollTop = messageListRef.current.scrollTop = ((messageElement as unknown) as any).offsetTop
       if (scrollTop === 0 && MessageListStore.canLoadPageBefore(pageKey)) {
         log.debug(
@@ -314,9 +305,8 @@ const MessageList = React.memo(function MessageList({
         return
       }
 
-      const scrollTop = messageListRef.current.scrollTop
-      const scrollHeight = messageListRef.current.scrollHeight
-      const wrapperHeight = messageListWrapperRef.current.clientHeight
+      const { scrollTop, scrollHeight } = messageListRef.current
+      const { wrapperHeight } = messageListWrapperRef.current
 
       const lastPageKey =
         MessageListStore.state.pageOrdering[
@@ -334,11 +324,15 @@ const MessageList = React.memo(function MessageList({
         `INCOMING_MESSAGES: scrollHeight: ${scrollHeight} scrollTop: ${scrollTop} wrapperHeight: ${wrapperHeight}`
       )
 
-      const isScrolledToBottom = scrollTop >= scrollHeight - wrapperHeight
+      const scrolledToBottom = isScrolledToBottom(
+        scrollTop,
+        scrollHeight,
+        wrapperHeight
+      )
 
-      const scrollToTopOfMessage = isScrolledToBottom && isPreviousMessageLoaded
+      const scrollToTopOfMessage = scrolledToBottom && isPreviousMessageLoaded
       log.debug(
-        `INCOMING_MESSAGES: scrollToTopOfMessage ${scrollToTopOfMessage} isScrolledToBottom: ${isScrolledToBottom} isPreviousMessageLoaded: ${isPreviousMessageLoaded}`
+        `INCOMING_MESSAGES: scrollToTopOfMessage ${scrollToTopOfMessage} scrolledToBottom: ${scrolledToBottom} isPreviousMessageLoaded: ${isPreviousMessageLoaded}`
       )
 
       if (scrollToTopOfMessage) {
@@ -373,16 +367,19 @@ const MessageList = React.memo(function MessageList({
       log.debug(
         `RESTORE_SCROLL_POSITION: restored scrollPosition to ${action.payload}`
       )
-    } else if (action.type === 'SCROLL_TO_POSITION') {
+    } else if (action.type === 'SCROLL_TO_MESSAGE') {
       if (action.id !== MessageListStore.state.chatId) {
         log.debug(
-          `SCROLL_TO_POSITION: action id mismatches state.chatId. Returning.`
+          `SCROLL_TO_MESSAGE: action id mismatches state.chatId. Returning.`
         )
         return
       }
-      messageListRef.current.scrollTop = action.payload
+      
+      const messageElement = document.querySelector('#' + action.payload.messageKey) as HTMLElement
+
+      messageListRef.current.scrollTop = messageElement.offsetTop + action.payload.relativeScrollPosition
       log.debug(
-        `SCROLL_TO_POSITION: restored scrollPosition to ${action.payload}`
+        `SCROLL_TO_MESSAGE: restored scrollPosition to ${action.payload}`
       )
     }
   }
@@ -486,9 +483,8 @@ const MessageList = React.memo(function MessageList({
     const scrollTop = messageListRef.current.scrollTop
     const scrollHeight = messageListRef.current.scrollHeight
     const wrapperHeight = messageListWrapperRef.current.clientHeight
-    const isScrolledToBottom = scrollTop >= scrollHeight - wrapperHeight
 
-    if (isScrolledToBottom) {
+    if (isScrolledToBottom(scrollTop, scrollHeight, wrapperHeight)) {
       MessageListStore.selectChat(chatId)
       return
     }
@@ -507,24 +503,12 @@ const MessageList = React.memo(function MessageList({
       marker1MessageId
     )
 
-    let firstMessageIndex = -1
-    let restoreScrollPosition = -1
-    const _messagesInView = Array.from(messagesInView(messageListRef))
-
-    if (_messagesInView.length === 0) {
-      log.debug('onMsgsChanged: No message in view. Returning.')
-      return
-    }
-
-    for (const {
-      messageElement,
-      messageListOffsetTop,
-      messageOffsetTop,
-    } of _messagesInView) {
+    for (const { messageElement, messageOffsetTop } of messagesInView(
+      messageListRef
+    )) {
       const { messageId, messageIndex: oldMessageIndex } = parseMessageKey(
         messageElement.getAttribute('id')
       )
-      console.log(messageId)
 
       const messageIndex = messageIds.indexOf(messageId)
       if (messageId <= 9 && oldMessageIndex !== messageIndex) {
@@ -533,68 +517,61 @@ const MessageList = React.memo(function MessageList({
 
       if (messageIndex === -1) continue
 
-      firstMessageIndex = messageIndex
-      restoreScrollPosition = Math.abs(messageOffsetTop - messageListOffsetTop)
-      break
-    }
+      // Position of messageBottom on screen
+      const relativeScrollPosition = scrollTop - messageOffsetTop
 
-    if (firstMessageIndex === -1) {
-      const { messageIndex: indexOfFirstMessageInView } = parseMessageKey(
-        _messagesInView[0].messageElement.getAttribute('id')
+      if (MessageListStore.currentlyDispatchedCounter > 0) return
+      MessageListStore.refresh(
+        chatId,
+        messageIds,
+        messageIndex,
+        relativeScrollPosition
       )
-      log.debug(
-        `onMsgsChanged: No message in view is in changed messageIds. Trying to find closest still existing message. indexOfFirstMessageInView: ${indexOfFirstMessageInView}`
-      )
-      const oldMessageIds = MessageListStore.state.messageIds
 
-      for (const oldMessageIndex of rotateAwayFromIndex(
-        indexOfFirstMessageInView,
-        messageIds.length
-      )) {
-        const messageId = oldMessageIds[oldMessageIndex]
-        const realMessageIndex = messageIds.indexOf(messageId)
-        console.log(oldMessageIndex, messageId, realMessageIndex)
-        if (messageId <= 9 && oldMessageIndex !== realMessageIndex) {
-          continue
-        }
-
-        if (realMessageIndex === -1) continue
-        firstMessageIndex = realMessageIndex
-        break
-      }
-      // In theory it would be better/more accurate to jump to the bottom if firstMessageIndex < indexOfFirstMessageInView
-      // and to the top of the message if firstMessageIndex > indexOfFirstMessageInView
-      // But this should be good enough for now
-      MessageListStore.jumpToMessage(chatId, messageIds[firstMessageIndex])
       return
     }
 
-    if (firstMessageIndex === -1) {
+    const firstMessageInView = messagesInView(messageListRef).next().value
+    if (!firstMessageInView) {
       log.debug(
-        'onMsgsChanged: Could not find a message to restore from. Reloading chat.'
+        `onMsgsChanged: No message in view. Should normally not happen. Let's just select the chat again?`
       )
-      MessageListStore.selectChat(chatId)
-      return
-    }
 
-    if (MessageListStore.currentlyDispatchedCounter > 0) return
-    MessageListStore.refresh(
-      chatId,
-      messageIds,
-      firstMessageIndex,
-      restoreScrollPosition === -1
-        ? null
-        : [
-            {
-              action: {
-                type: 'SCROLL_TO_POSITION',
-                payload: restoreScrollPosition,
-                id: chatId,
-              },
-              isLayoutEffect: true,
-            },
-          ]
+      return selectChat(messageListStore.chatId)
+    }
+    
+    const { messageIndex: indexOfFirstMessageInView } = parseMessageKey(
+      firstMessageInView.messageElement.getAttribute('id')
     )
+    log.debug(
+      `onMsgsChanged: No message in view is in changed messageIds. Trying to find closest still existing message. indexOfFirstMessageInView: ${indexOfFirstMessageInView}`
+    )
+    const oldMessageIds = MessageListStore.state.messageIds
+
+    // Find closest still existing messageId and jump there
+    for (const oldMessageIndex of rotateAwayFromIndex(
+      indexOfFirstMessageInView,
+      messageIds.length
+    )) {
+      const messageId = oldMessageIds[oldMessageIndex]
+      const realMessageIndex = messageIds.indexOf(messageId)
+      if (messageId <= 9 && oldMessageIndex !== realMessageIndex) {
+        continue
+      }
+
+      if (realMessageIndex === -1) continue
+
+      // In theory it would be better/more accurate to jump to the bottom if firstMessageIndexInView < indexOfFirstMessageInView
+      // and to the top of the message if firstMessageIndexInView > indexOfFirstMessageInView
+      // But this should be good enough for now
+      MessageListStore.jumpToMessage(chatId, messageId)
+      return
+    }
+
+    log.debug(
+      'onMsgsChanged: Could not find a message to restore from. Reloading chat.'
+    )
+    MessageListStore.selectChat(chatId)
   }
 
   const onIncomingMessage = async (
@@ -602,7 +579,7 @@ const MessageList = React.memo(function MessageList({
     [chatId, _messageId]: [number, number]
   ) => {
     if (chatId !== MessageListStore.state.chatId) {
-      log.debug('onMsgsChanged: Currently loading page, returning')
+      log.debug('onMsgsChanged: not for currently selected chat, returning')
       return
     }
     onMsgsChanged()
@@ -691,38 +668,34 @@ const MessageList = React.memo(function MessageList({
           {iterateMessages((key, messageId, messageIndex, message) => {
             if (message.type === MessageTypeIs.DayMarker) {
               return (
-                <ul key={key} id={key}>
-                  <DayMarkerInfoMessage
-                    key={key}
-                    timestamp={(message as MessageDayMarker).timestamp}
-                  />
-                </ul>
+                <DayMarkerInfoMessage
+                  key={key}
+                  key2={key}
+                  timestamp={(message as MessageDayMarker).timestamp}
+                />
               )
             } else if (message.type === MessageTypeIs.MarkerOne) {
               return (
-                <ul key={key} id={key}>
-                  <UnreadMessagesMarker
-                    key={key}
-                    count={messageListStore.marker1MessageCount}
-                  />
-                </ul>
+                <UnreadMessagesMarker
+                  key={key}
+                  key2={key}
+                  count={messageListStore.marker1MessageCount}
+                />
               )
             } else if (message.type === MessageTypeIs.Message) {
               return (
-                <ul key={key} id={key}>
-                  <MessageWrapper
-                    key={key}
-                    key2={key}
-                    message={message as Message}
-                    conversationType={
-                      chat.type === C.DC_CHAT_TYPE_GROUP ? 'group' : 'direct'
-                    }
-                    isDeviceChat={chat.isDeviceChat}
-                    unreadMessageInViewIntersectionObserver={
-                      unreadMessageInViewIntersectionObserver
-                    }
-                  />
-                </ul>
+                <MessageWrapper
+                  key={key}
+                  key2={key}
+                  message={message as Message}
+                  conversationType={
+                    chat.type === C.DC_CHAT_TYPE_GROUP ? 'group' : 'direct'
+                  }
+                  isDeviceChat={chat.isDeviceChat}
+                  unreadMessageInViewIntersectionObserver={
+                    unreadMessageInViewIntersectionObserver
+                  }
+                />
               )
             }
           })}
@@ -741,6 +714,11 @@ const MessageList = React.memo(function MessageList({
           <div
             className='jump-to-bottom-button'
             onClick={() => {
+              // Mark all messages in this chat as read
+              MessageListStore.markMessagesSeen(
+                messageListStore.chatId,
+                messageListStore.unreadMessageIds
+              )
               jumpToMessage(
                 messageListStore.messageIds[
                   messageListStore.messageIds.length - 1
@@ -755,26 +733,6 @@ const MessageList = React.memo(function MessageList({
 })
 
 export default MessageList
-
-export function calculateMessageKey(
-  pageKey: string,
-  messageId: number,
-  messageIndex: number
-) {
-  return pageKey + '-' + messageId + '-' + messageIndex
-}
-
-export function parseMessageKey(messageKey: string) {
-  const splittedMessageKey = messageKey.split('-')
-  if (splittedMessageKey[0] !== 'page' && splittedMessageKey.length === 5) {
-    throw new Error('Expected a proper messageKey')
-  }
-  return {
-    pageKey: `page-${splittedMessageKey[1]}-${splittedMessageKey[2]}`,
-    messageId: Number.parseInt(splittedMessageKey[3]),
-    messageIndex: Number.parseInt(splittedMessageKey[4]),
-  }
-}
 
 export function* rotateAwayFromIndex(index: number, length: number) {
   let count = 0
@@ -810,17 +768,31 @@ export function MessagePage({
   const firstMessageIdIndex = page.firstMessageIdIndex
   return (
     <div className={'message-list-page'} id={page.key} key={page.key}>
-      {page.messageIds.map((messageId: MessageId, index) => {
-        const messageIndex = firstMessageIdIndex + index
-        const message: MessageType = page.messages[index]
-        if (message === null) return null
-        const messageKey = calculateMessageKey(
-          page.key,
-          messageId,
-          messageIndex
-        )
-        return mapFunction(messageKey, messageId, messageIndex, message)
-      })}
+      <ul key={page.key} id={page.key}>
+        {page.messageIds.map((messageId: MessageId, index) => {
+          const messageIndex = firstMessageIdIndex + index
+          const message: MessageType = page.messages[index]
+          if (message === null) return null
+          const messageKey = calculateMessageKey(
+            page.key,
+            messageId,
+            messageIndex
+          )
+          return mapFunction(messageKey, messageId, messageIndex, message)
+        })}
+      </ul>
     </div>
   )
+}
+
+function mathInBetween(windowLow: number, windowHigh: number, value: number) {
+  return value >= windowLow && value <= windowHigh
+}
+
+function isScrolledToBottom(
+  scrollTop: number,
+  scrollHeight: number,
+  wrapperHeight: number
+) {
+  return scrollTop >= scrollHeight - wrapperHeight
 }

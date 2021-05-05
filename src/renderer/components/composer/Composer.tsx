@@ -217,7 +217,10 @@ const Composer = forwardRef<
           >
             <span />
           </div>
-          <div className='send-button-wrapper' onClick={sendMessageAndFocusComposer}>
+          <div
+            className='send-button-wrapper'
+            onClick={sendMessageAndFocusComposer}
+          >
             <button aria-label={tx('menu_send')} />
           </div>
         </div>

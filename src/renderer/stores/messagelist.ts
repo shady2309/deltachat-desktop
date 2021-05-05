@@ -181,7 +181,7 @@ export class PageStore extends Store<PageStoreState> {
   _calculateIndexesForPageWithMessageIdInMiddle(
     messageIds: number[],
     middleMessageIdIndex: number
-  ) {
+  ): [number, number] {
     let firstMessageIdIndex = Math.max(middleMessageIdIndex - 3, 0)
     const currentDistance = middleMessageIdIndex - firstMessageIdIndex
     let remainingDistance = PAGE_SIZE - currentDistance
@@ -549,15 +549,34 @@ export class PageStore extends Store<PageStoreState> {
     state: PageStoreState,
     messageId: number,
     iterateFromback?: boolean
-  ): { pageKey: string; indexOnPage: number; messageIdIndex: number } {
-    let pageKey: string = null
-    let indexOnPage = -1
-
+  ): {
+    pageKey: string
+    indexOnPage: number
+    messageIdIndex: number
+    messageKey: string
+  } {
     const messageIdIndex = this._indexOfMessageId(
       state,
       messageId,
       iterateFromback
     )
+
+    return this._findPageWithMessageIndex(state, messageIdIndex)
+  }
+
+  _findPageWithMessageIndex(
+    state: PageStoreState,
+    messageIdIndex: number
+  ): {
+    pageKey: string
+    indexOnPage: number
+    messageIdIndex: number
+    messageKey: string
+  } {
+    let pageKey: string = null
+    let indexOnPage = -1
+
+    const messageId = state.messageIds[messageIdIndex]
     if (messageIdIndex !== -1) {
       for (const currentPageKey of state.pageOrdering) {
         const currentPage = state.pages[currentPageKey]
@@ -566,13 +585,18 @@ export class PageStore extends Store<PageStoreState> {
           messageIdIndex <= currentPage.lastMessageIdIndex
         ) {
           pageKey = currentPageKey
-          indexOnPage = currentPage.messageIds.indexOf(messageId)
+          indexOnPage = messageIdIndex - currentPage.firstMessageIdIndex
           break
         }
       }
     }
 
-    return { pageKey, indexOnPage, messageIdIndex }
+    return {
+      pageKey,
+      indexOnPage,
+      messageIdIndex,
+      messageKey: calculateMessageKey(pageKey, messageId, messageIdIndex),
+    }
   }
 
   _updateMessage(
@@ -600,8 +624,8 @@ export class PageStore extends Store<PageStoreState> {
   refresh(
     chatId: number,
     messageIds: number[],
-    firstMessageIndex: number,
-    dispatchesAfter?: DispatchesAfter
+    firstMessageOnScreenIndex: number,
+    relativeScrollPosition: number,
   ) {
     this.dispatch(
       'refresh',
@@ -638,10 +662,10 @@ export class PageStore extends Store<PageStoreState> {
           return
         }
 
-        const lastMessageIndex = Math.min(
-          firstMessageIndex + PAGE_SIZE,
-          messageIds.length - 1
+        const [firstMessageIndex, lastMessageIndex] = this._calculateIndexesForPageWithMessageIdInMiddle(
+          messageIds, firstMessageOnScreenIndex
         )
+        
         const {
           pages,
           pageOrdering,
@@ -661,8 +685,7 @@ export class PageStore extends Store<PageStoreState> {
           return
         }
 
-        this.dispatchesAfter(dispatchesAfter)
-        setState({
+        const newState = {
           pages,
           pageOrdering,
           chatId,
@@ -671,7 +694,18 @@ export class PageStore extends Store<PageStoreState> {
           marker1MessageId,
           marker1MessageCount,
           loading: false,
+        }
+
+        const {messageKey} = this._findPageWithMessageIndex(newState, firstMessageOnScreenIndex)
+        this.pushLayoutEffect({
+          type: 'SCROLL_TO_MESSAGE',
+          payload: {
+            messageKey,
+            relativeScrollPosition
+          },
+          id: state.chatId
         })
+        setState(newState)
       }
     )
   }
@@ -805,9 +839,10 @@ export class PageStore extends Store<PageStoreState> {
 
       if (update) {
         await markSeen
+        // Use this.state as it's possible that things changed during the await
         setState({
-          ...state,
-          unreadMessageIds: state.unreadMessageIds.filter(
+          ...this.state,
+          unreadMessageIds: this.state.unreadMessageIds.filter(
             mId => messageIds.indexOf(mId) === -1
           ),
         })
@@ -848,3 +883,29 @@ export const MessageListStore = new PageStore(
   defaultPageStoreState(),
   'MessageListStore'
 )
+
+export function calculateMessageKey(
+  pageKey: string,
+  messageId: number,
+  messageIndex: number
+): string {
+  return pageKey + '-' + messageId + '-' + messageIndex
+}
+
+export function parseMessageKey(
+  messageKey: string
+): {
+  pageKey: string
+  messageId: number
+  messageIndex: number
+} {
+  const splittedMessageKey = messageKey.split('-')
+  if (splittedMessageKey[0] !== 'page' && splittedMessageKey.length === 5) {
+    throw new Error('Expected a proper messageKey')
+  }
+  return {
+    pageKey: `page-${splittedMessageKey[1]}-${splittedMessageKey[2]}`,
+    messageId: Number.parseInt(splittedMessageKey[3]),
+    messageIndex: Number.parseInt(splittedMessageKey[4]),
+  }
+}

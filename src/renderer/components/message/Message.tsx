@@ -456,33 +456,40 @@ export const Quote = ({ quote }: { quote: MessageQuote }) => {
   )
 }
 
-export function DayMarkerInfoMessage(props: { timestamp: number }) {
-  const { timestamp } = props
+export function DayMarkerInfoMessage(props: {
+  timestamp: number
+  key2: string
+}) {
+  const { timestamp, key2 } = props
   const tx = useTranslationFunction()
   return (
-    <div className='info-message'>
-      <p style={{ textTransform: 'capitalize' }}>
-        {moment.unix(timestamp).calendar(null, {
-          sameDay: `[${tx('today')}]`,
-          lastDay: `[${tx('yesterday')}]`,
-          lastWeek: 'LL',
-          sameElse: 'LL',
-        })}
-      </p>
-    </div>
+    <li id={key2}>
+      <div className='info-message'>
+        <p style={{ textTransform: 'capitalize' }}>
+          {moment.unix(timestamp).calendar(null, {
+            sameDay: `[${tx('today')}]`,
+            lastDay: `[${tx('yesterday')}]`,
+            lastWeek: 'LL',
+            sameElse: 'LL',
+          })}
+        </p>
+      </div>
+    </li>
   )
 }
 
-export function UnreadMessagesMarker(props: { count: number }) {
-  const { count } = props
+export function UnreadMessagesMarker(props: { count: number; key2: string }) {
+  const { count, key2 } = props
   const tx = useTranslationFunction()
   return (
-    <div className='info-message'>
-      <p style={{ textTransform: 'capitalize' }}>
-        {tx('chat_n_new_messages', String(count), {
-          quantity: count === 1 ? 'one' : 'other',
-        })}
-      </p>
-    </div>
+    <li id={key2}>
+      <div className='info-message'>
+        <p style={{ textTransform: 'capitalize' }}>
+          {tx('chat_n_new_messages', String(count), {
+            quantity: count === 1 ? 'one' : 'other',
+          })}
+        </p>
+      </div>
+    </li>
   )
 }
