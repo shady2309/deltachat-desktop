@@ -55,6 +55,8 @@ export type DispatchesAfter = DispatchAfter[]
 
 export class PageStore extends Store<PageStoreState> {
   public currentlyLoadingPage = false
+  
+  public ignoreDcEventMsgsChanged = 0
   updatePage(pageKey: string, updateObj: Partial<PageStoreState['pages']>) {
     return {
       ...this.state,
@@ -491,7 +493,8 @@ export class PageStore extends Store<PageStoreState> {
   }
 
   sendMessage(chatId: number, messageParams: sendMessageParams) {
-    this.dispatch('sendMessage', async (state, _setState) => {
+    this.dispatch('sendMessage', async (state, setState) => {
+      this.ignoreDcEventMsgsChanged++
       const [messageId, _message] = await DeltaBackend.call(
         'messageList.sendMessage',
         chatId,
@@ -504,25 +507,52 @@ export class PageStore extends Store<PageStoreState> {
         // Workaround for failed messages
         return
       }
+      const unreadMessageIds = await DeltaBackend.call(
+        'messageList.getUnreadMessageIds',
+        chatId
+      )
+      
+      const firstUnreadMessageId =
+        unreadMessageIds.length > 0 ? unreadMessageIds[0] : -1
+      const marker1MessageId = firstUnreadMessageId || 0
+      const marker1MessageCount = unreadMessageIds.length
 
       const messageIds = await DeltaBackend.call(
         'messageList.getMessageIds',
-        chatId
+        chatId,
+        marker1MessageId
       )
+      
+      
 
       const lastMessageIndex = messageIds.length - 1
       const firstMessageIndex = Math.max(lastMessageIndex - PAGE_SIZE, 0)
+        
+      const {
+        pages,
+        pageOrdering,
+      } = await this._loadPageWithFirstMessageIndex(
+        chatId,
+        messageIds,
+        firstMessageIndex,
+        lastMessageIndex,
+        marker1MessageId
+      )
 
-      MessageListStore.refresh(chatId, messageIds, firstMessageIndex, [
-        {
-          action: {
-            type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE',
-            payload: null,
-            id: state.chatId,
-          },
-          isLayoutEffect: true,
-        },
-      ])
+
+      const newState = {
+        pages,
+        pageOrdering,
+        chatId,
+        messageIds,
+        unreadMessageIds,
+        marker1MessageId,
+        marker1MessageCount,
+        loading: false,
+      }
+
+      
+      await setState(newState)
     })
   }
 
@@ -696,15 +726,23 @@ export class PageStore extends Store<PageStoreState> {
           loading: false,
         }
 
-        const {messageKey} = this._findPageWithMessageIndex(newState, firstMessageOnScreenIndex)
-        this.pushLayoutEffect({
-          type: 'SCROLL_TO_MESSAGE',
-          payload: {
-            messageKey,
-            relativeScrollPosition
-          },
-          id: state.chatId
-        })
+        if (relativeScrollPosition !== -1) {
+          const {messageKey} = this._findPageWithMessageIndex(newState, firstMessageOnScreenIndex)
+          this.pushLayoutEffect({
+            type: 'SCROLL_TO_MESSAGE',
+            payload: {
+              messageKey,
+              relativeScrollPosition
+            },
+            id: state.chatId
+          })
+        } else {
+          this.pushLayoutEffect({
+            type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE',
+            payload: null,
+            id: state.chatId,
+          })
+        }
         setState(newState)
       }
     )

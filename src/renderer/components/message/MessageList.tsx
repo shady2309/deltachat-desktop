@@ -386,7 +386,7 @@ const MessageList = React.memo(function MessageList({
 
   const scrollPositionBeforeSetState = useRef(-1)
 
-  const messageListStore = MessageListStore.useStore(
+  const { state: messageListStore, layoutEffectQueue: messageListLayoutEffectQueue } = MessageListStore.useStore(
     onMessageListStoreEffect,
     onMessageListStoreLayoutEffect
   )
@@ -478,6 +478,11 @@ const MessageList = React.memo(function MessageList({
   }
 
   const onMsgsChanged = async () => {
+    if (MessageListStore.ignoreDcEventMsgsChanged > 0) {
+      MessageListStore.ignoreDcEventMsgsChanged--
+      log.debug('onMsgsChanged: MessageListSotre.ignoreDcEventMsgsChanged is > 0, so we do. returning')
+      return
+    }
     const chatId = MessageListStore.state.chatId
 
     const scrollTop = messageListRef.current.scrollTop
@@ -537,7 +542,7 @@ const MessageList = React.memo(function MessageList({
         `onMsgsChanged: No message in view. Should normally not happen. Let's just select the chat again?`
       )
 
-      return selectChat(messageListStore.chatId)
+      return selectChat(messageListStore.state.chatId)
     }
     
     const { messageIndex: indexOfFirstMessageInView } = parseMessageKey(
