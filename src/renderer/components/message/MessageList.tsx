@@ -389,10 +389,7 @@ const MessageList = React.memo(function MessageList({
 
   const scrollPositionBeforeSetState = useRef(-1)
 
-  const {
-    state: messageListStore,
-    layoutEffectQueue: messageListLayoutEffectQueue,
-  } = MessageListStore.useStore(
+  const { state: messageListStore } = MessageListStore.useStore(
     onMessageListStoreEffect,
     onMessageListStoreLayoutEffect
   )
