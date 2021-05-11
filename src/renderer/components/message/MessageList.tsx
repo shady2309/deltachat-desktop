@@ -1,9 +1,10 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   calculateMessageKey,
   MessageId,
   MessageListPage,
   MessageListStore,
+  PageStoreState,
   parseMessageKey,
 } from '../../stores/messagelist'
 import { Action } from '../../stores/store2'
@@ -128,6 +129,43 @@ function* messagesInView(messageListRef: React.MutableRefObject<HTMLElement>) {
   }
 }
 
+function isOnePageOrMoreAwayFromNewestMessage(
+  messageListStore: PageStoreState,
+  messageListRef: React.MutableRefObject<HTMLElement>
+) {
+  const debug = (str: String) =>
+    log.debug('isOnePageOrMoreAwayFromNewestMessage: ' + str)
+
+  console.log(messageListStore)
+  const newestMessageIndex = messageListStore.messageIds.length - 1
+  debug(`newestMessageIndex: ${newestMessageIndex}`)
+  const lastLoadedPageKey =
+    messageListStore.pageOrdering[messageListStore.pageOrdering.length - 1]
+  debug(`lastLoadedPageKey: ${lastLoadedPageKey}`)
+  const lastLoadedPage = messageListStore.pages[lastLoadedPageKey]
+  debug(`lastLoadedPage: ${lastLoadedPage}`)
+
+  const newestMessageIndexOnLastLoadedPage = lastLoadedPage.lastMessageIdIndex
+
+  // First check that we even have loaded the newest message index. Otherwise
+  // we are for sure more far away!
+  if (newestMessageIndexOnLastLoadedPage !== newestMessageIndex) {
+    return true
+  }
+
+  const scrollBottom =
+    messageListRef.current.scrollTop + messageListRef.current.clientHeight
+  const scrollHeight = messageListRef.current.scrollHeight
+  const halfClientHeight = messageListRef.current.clientHeight / 2
+  const border = scrollHeight - halfClientHeight
+
+  if (scrollBottom >= border) {
+    return false
+  }
+
+  return true
+}
+
 const MessageList = React.memo(function MessageList({
   chat,
 }: {
@@ -137,6 +175,10 @@ const MessageList = React.memo(function MessageList({
   const messageListWrapperRef = useRef(null)
   const messageListTopRef = useRef(null)
   const messageListBottomRef = useRef(null)
+  const [
+    onePageAwayFromNewestMessage,
+    setOnePageAwayFromNewestMessage,
+  ] = useState(false)
   const onMessageListStoreEffect = (action: Action) => {
     if (action.type === 'SCROLL_BEFORE_LAST_PAGE') {
       log.debug(`SCROLL_BEFORE_LAST_PAGE`)
@@ -662,6 +704,15 @@ const MessageList = React.memo(function MessageList({
     })
   }
 
+  const onScroll = () => {
+    setOnePageAwayFromNewestMessage(
+      isOnePageOrMoreAwayFromNewestMessage(
+        MessageListStore.state,
+        messageListRef
+      )
+    )
+  }
+
   return (
     <>
       <div
@@ -669,7 +720,7 @@ const MessageList = React.memo(function MessageList({
         style={{ height: '100%' }}
         ref={messageListWrapperRef}
       >
-        <div id='message-list' ref={messageListRef}>
+        <div id='message-list' ref={messageListRef} onScroll={onScroll}>
           <div
             key='message-list-top'
             id='message-list-top'
@@ -716,27 +767,32 @@ const MessageList = React.memo(function MessageList({
           />
         </div>
       </div>
-      {messageListStore.unreadMessageIds.length > 0 && (
-        <div className='unread-message-counter'>
-          <div className='counter'>
-            {messageListStore.unreadMessageIds.length}
+      {(onePageAwayFromNewestMessage === true ||
+        messageListStore.unreadMessageIds.length > 0) && (
+        <>
+          <div className='unread-message-counter'>
+            {messageListStore.unreadMessageIds.length > 0 && (
+              <div className='counter'>
+                {messageListStore.unreadMessageIds.length}
+              </div>
+            )}
+            <div
+              className='jump-to-bottom-button'
+              onClick={() => {
+                // Mark all messages in this chat as read
+                MessageListStore.markMessagesSeen(
+                  messageListStore.chatId,
+                  messageListStore.unreadMessageIds
+                )
+                jumpToMessage(
+                  messageListStore.messageIds[
+                    messageListStore.messageIds.length - 1
+                  ]
+                )
+              }}
+            />
           </div>
-          <div
-            className='jump-to-bottom-button'
-            onClick={() => {
-              // Mark all messages in this chat as read
-              MessageListStore.markMessagesSeen(
-                messageListStore.chatId,
-                messageListStore.unreadMessageIds
-              )
-              jumpToMessage(
-                messageListStore.messageIds[
-                  messageListStore.messageIds.length - 1
-                ]
-              )
-            }}
-          />
-        </div>
+        </>
       )}
     </>
   )
