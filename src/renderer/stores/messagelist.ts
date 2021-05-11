@@ -534,6 +534,12 @@ export class PageStore extends Store<PageStoreState> {
         marker1MessageId
       )
 
+      this.pushLayoutEffect({
+        type: 'SCROLL_TO_BOTTOM_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE',
+        payload: null,
+        id: state.chatId,
+      })
+
       const newState = {
         pages,
         pageOrdering,

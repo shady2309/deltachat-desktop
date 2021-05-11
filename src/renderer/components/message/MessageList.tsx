@@ -550,7 +550,7 @@ const MessageList = React.memo(function MessageList({
         `onMsgsChanged: No message in view. Should normally not happen. Let's just select the chat again?`
       )
 
-      return selectChat(messageListStore.state.chatId)
+      return selectChat(MessageListStore.state.chatId)
     }
 
     const { messageIndex: indexOfFirstMessageInView } = parseMessageKey(
