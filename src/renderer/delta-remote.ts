@@ -13,6 +13,7 @@ import {
   DesktopSettings,
   QrCodeResponse,
   MessageType,
+  MarkerOneParams,
 } from '../shared/shared-types'
 import { MuteDuration } from '../shared/constants'
 import { LocaleData } from '../shared/localize'
@@ -227,7 +228,7 @@ class DeltaRemote {
     chatId: number,
     indexStart: number,
     indexEnd: number,
-    marker1Before?: number
+    marker1Before?: MarkerOneParams
   ): Promise<MessageType[]>
   call(fnName: 'messageList.getMessageInfo', msgId: number): Promise<string>
   call(fnName: 'messageList.getDraft', chatId: number): Promise<Message>
@@ -244,7 +245,7 @@ class DeltaRemote {
   call(
     fnName: 'messageList.getMessageIds',
     chatid: number,
-    marker1Before?: number
+    marker1Before?: MarkerOneParams
   ): Promise<number[]>
   call(
     fnName: 'messageList.forwardMessage',

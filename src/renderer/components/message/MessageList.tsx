@@ -1,11 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
-  calculateMessageKey,
   MessageId,
   MessageListPage,
   MessageListStore,
   PageStoreState,
-  parseMessageKey,
 } from '../../stores/messagelist'
 import { Action } from '../../stores/store2'
 import { MessageWrapper } from './MessageWrapper'
@@ -22,6 +20,10 @@ import { C } from 'deltachat-node/dist/constants'
 import { jumpToMessage, selectChat } from '../helpers/ChatMethods'
 import { ipcBackend } from '../../ipc'
 import { DeltaBackend } from '../../delta-remote'
+import {
+  calculateMessageKey,
+  parseMessageKey,
+} from '../../stores/messagelist-helpers'
 
 const log = getLogger('renderer/message/MessageList')
 
@@ -547,11 +549,16 @@ const MessageList = React.memo(function MessageList({
     const firstUnreadMessageId =
       unreadMessageIds.length > 0 ? unreadMessageIds[0] : -1
     const marker1MessageId = firstUnreadMessageId || 0
+    const marker1Counter = unreadMessageIds.length
+    const markerOne = {
+      ...MessageListStore.state.markerOne,
+      [marker1MessageId]: marker1Counter,
+    }
 
     const messageIds = await DeltaBackend.call(
       'messageList.getMessageIds',
       chatId,
-      marker1MessageId
+      markerOne
     )
 
     for (const { messageElement, messageOffsetTop } of messagesInView(
@@ -739,7 +746,7 @@ const MessageList = React.memo(function MessageList({
                 <UnreadMessagesMarker
                   key={key}
                   key2={key}
-                  count={messageListStore.marker1MessageCount}
+                  count={message.count}
                 />
               )
             } else if (message.type === MessageTypeIs.Message) {
@@ -770,7 +777,14 @@ const MessageList = React.memo(function MessageList({
         messageListStore.unreadMessageIds.length > 0) && (
         <>
           <div className='unread-message-counter'>
-            <div className='counter' style={ messageListStore.unreadMessageIds.length === 0 ? {display: 'none'} : null}>
+            <div
+              className='counter'
+              style={
+                messageListStore.unreadMessageIds.length === 0
+                  ? { display: 'none' }
+                  : null
+              }
+            >
               {messageListStore.unreadMessageIds.length}
             </div>
             <div

@@ -126,7 +126,7 @@ export default class Store2<S> {
     const yourIncrementingDispatchedCounter = this.incrementingDispatchedCounter
     this.currentlyDispatchedCounter++
     this.log.debug(
-      `DISPATCHING OF ${name} increased the currentlyDispatchedCounter ${this.currentlyDispatchedCounter} xxx`
+      `DISPATCHING OF ${name} increased the currentlyDispatchedCounter ${this.currentlyDispatchedCounter}`
     )
 
     let calledSetState = false
@@ -263,7 +263,7 @@ export default class Store2<S> {
         if (effect.type === 'DECREASE_CURRENTLY_DISPATCHED_COUNTER') {
           this.currentlyDispatchedCounter--
           this.log.debug(
-            'useEffect: xxx DECREASE_CURRENTLY_DISPATCHED_COUNTER',
+            'useEffect: DECREASE_CURRENTLY_DISPATCHED_COUNTER',
             this.currentlyDispatchedCounter
           )
           continue

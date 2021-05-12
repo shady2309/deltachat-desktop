@@ -1,8 +1,28 @@
 import { C } from 'deltachat-node/dist/constants'
 import { getLogger } from '../../shared/logger'
-import { MessageType, MessageState, Message } from '../../shared/shared-types'
+import {
+  MessageType,
+  MessageState,
+  Message,
+  MarkerOneParams,
+} from '../../shared/shared-types'
 import { DeltaBackend, sendMessageParams } from '../delta-remote'
 import { ipcBackend } from '../ipc'
+import {
+  calculateIndexesForLastPage,
+  calculateIndexesForPageAfter,
+  calculateIndexesForPageBefore,
+  calculateIndexesForPageWithMessageIdInMiddle,
+  findPageWithMessageId,
+  findPageWithMessageIndex,
+  getUnreadMessageIdsAndMarkerOne,
+  getUnreadMessageIdsMarkerOneAndMessageIds,
+  loadPageWithFirstMessageIndex,
+  loadPageWithMessageIndexInMiddle,
+  safeMessageIdIndex,
+  updateMessage,
+  withoutPages,
+} from './messagelist-helpers'
 import Store, {
   Action,
   OnlyDispatchIfCurrentlyDispatchedCounterEqualsZero,
@@ -28,8 +48,7 @@ export interface PageStoreState {
   pageOrdering: string[]
   chatId: number
   messageIds: MessageId[]
-  marker1MessageId: number
-  marker1MessageCount: number
+  markerOne: MarkerOneParams
   unreadMessageIds: number[]
   loading: boolean
 }
@@ -42,8 +61,7 @@ export function defaultPageStoreState(): PageStoreState {
     messageIds: [],
     unreadMessageIds: [],
     loading: false,
-    marker1MessageId: 0,
-    marker1MessageCount: 0,
+    markerOne: {},
   }
 }
 
@@ -85,20 +103,12 @@ export class PageStore extends Store<PageStoreState> {
     return this.dispatch(
       'selectChat',
       async (state: PageStoreState, setState) => {
-        const unreadMessageIds = await DeltaBackend.call(
-          'messageList.getUnreadMessageIds',
-          chatId
-        )
-        const firstUnreadMessageId =
-          unreadMessageIds.length > 0 ? unreadMessageIds[0] : -1
-        const marker1MessageId = firstUnreadMessageId || 0
-        const marker1MessageCount = unreadMessageIds.length
-
-        const messageIds = await DeltaBackend.call(
-          'messageList.getMessageIds',
-          chatId,
-          marker1MessageId
-        )
+        const {
+          unreadMessageIds,
+          firstUnreadMessageId,
+          messageIds,
+          markerOne,
+        } = await getUnreadMessageIdsMarkerOneAndMessageIds(chatId, {})
 
         let [pages, pageOrdering]: [
           PageStoreState['pages'],
@@ -106,33 +116,29 @@ export class PageStore extends Store<PageStoreState> {
         ] = [{}, []]
 
         if (firstUnreadMessageId !== -1) {
-          const firstUnreadMessageIdIndex = Math.max(
-            0,
-            messageIds.indexOf(firstUnreadMessageId)
-          )
-          const [
-            firstMessageIdIndex,
-            lastMessageIdIndex,
-          ] = this._calculateIndexesForPageWithMessageIdInMiddle(
-            messageIds,
-            firstUnreadMessageIdIndex
+          const firstUnreadMessageIdIndex = messageIds.indexOf(
+            firstUnreadMessageId
           )
 
-          const tmp = await this._loadPageWithFirstMessageIndex(
+          const tmp = await loadPageWithMessageIndexInMiddle(
             chatId,
             messageIds,
-            firstMessageIdIndex,
-            lastMessageIdIndex,
-            marker1MessageId
+            firstUnreadMessageIdIndex,
+            {}
           )
-
           pages = tmp.pages
           pageOrdering = tmp.pageOrdering
 
+          // We cannot focus messages with messageIdInex === C.DC_MSG_ID_DAYMARKER, therefore we focus
+          // the first message before
           let messageIdIndexToFocus = Math.max(0, firstUnreadMessageIdIndex - 1)
-          if (messageIds[messageIdIndexToFocus] === C.DC_MSG_ID_DAYMARKER) {
+          while (
+            messageIdIndexToFocus === C.DC_MSG_ID_DAYMARKER &&
+            messageIdIndexToFocus !== 0
+          ) {
             messageIdIndexToFocus = Math.max(0, messageIdIndexToFocus - 1)
           }
+
           this.pushLayoutEffect({
             type: 'SCROLL_TO_MESSAGE_AND_CHECK_IF_WE_NEED_TO_LOAD_MORE',
             payload: {
@@ -142,20 +148,16 @@ export class PageStore extends Store<PageStoreState> {
             id: chatId,
           })
         } else {
-          const firstMessageIndexOnLastPage = Math.max(
-            0,
-            messageIds.length - PAGE_SIZE
-          )
-          const endMessageIdIndex = Math.min(
-            firstMessageIndexOnLastPage + PAGE_SIZE,
-            messageIds.length - 1
-          )
-          const tmp = await this._loadPageWithFirstMessageIndex(
+          const [
+            firstMessageIdIndexOnLastPage,
+            lastMessageIdIndexOnLastPage,
+          ] = calculateIndexesForLastPage(messageIds)
+          const tmp = await loadPageWithFirstMessageIndex(
             chatId,
             messageIds,
-            firstMessageIndexOnLastPage,
-            endMessageIdIndex,
-            0
+            firstMessageIdIndexOnLastPage,
+            lastMessageIdIndexOnLastPage,
+            markerOne
           )
           pages = tmp.pages
           pageOrdering = tmp.pageOrdering
@@ -172,32 +174,11 @@ export class PageStore extends Store<PageStoreState> {
           chatId,
           messageIds,
           unreadMessageIds,
-          marker1MessageId,
-          marker1MessageCount,
+          markerOne,
           loading: false,
         })
       }
     )
-  }
-
-  _calculateIndexesForPageWithMessageIdInMiddle(
-    messageIds: number[],
-    middleMessageIdIndex: number
-  ): [number, number] {
-    let firstMessageIdIndex = Math.max(middleMessageIdIndex - 3, 0)
-    const currentDistance = middleMessageIdIndex - firstMessageIdIndex
-    let remainingDistance = PAGE_SIZE - currentDistance
-    const lastMessageIdIndex = Math.min(
-      middleMessageIdIndex + remainingDistance,
-      messageIds.length - 1
-    )
-
-    remainingDistance = lastMessageIdIndex - firstMessageIdIndex
-    if (remainingDistance <= PAGE_SIZE) {
-      firstMessageIdIndex = Math.max(firstMessageIdIndex - remainingDistance, 0)
-    }
-
-    return [firstMessageIdIndex, lastMessageIdIndex]
   }
 
   async jumpToMessage(chatId: number, messageId: number) {
@@ -205,37 +186,19 @@ export class PageStore extends Store<PageStoreState> {
       'jumpToMessage',
       async (state: PageStoreState, setState) => {
         log.debug(`jumpToMessage: chatId: ${chatId} messageId: ${messageId}`)
-        const unreadMessageIds = await DeltaBackend.call(
-          'messageList.getUnreadMessageIds',
-          chatId
-        )
-        const marker1MessageId = unreadMessageIds[0] || 0
-        const marker1MessageCount = unreadMessageIds.length
-        const messageIds = await DeltaBackend.call(
-          'messageList.getMessageIds',
-          chatId,
-          marker1MessageId
-        )
+        const {
+          unreadMessageIds,
+          messageIds,
+          markerOne,
+        } = await getUnreadMessageIdsMarkerOneAndMessageIds(chatId, {})
 
         const jumpToMessageIndex = messageIds.indexOf(messageId)
 
-        const [
-          firstMessageIdIndex,
-          lastMessageIdIndex,
-        ] = this._calculateIndexesForPageWithMessageIdInMiddle(
-          messageIds,
-          jumpToMessageIndex
-        )
-
-        const {
-          pages,
-          pageOrdering,
-        } = await this._loadPageWithFirstMessageIndex(
+        const { pages, pageOrdering } = await loadPageWithMessageIndexInMiddle(
           chatId,
           messageIds,
-          firstMessageIdIndex,
-          lastMessageIdIndex,
-          unreadMessageIds[0] || 0
+          jumpToMessageIndex,
+          markerOne
         )
 
         this.pushLayoutEffect({
@@ -253,8 +216,7 @@ export class PageStore extends Store<PageStoreState> {
           chatId,
           messageIds,
           unreadMessageIds,
-          marker1MessageId,
-          marker1MessageCount,
+          markerOne,
           loading: false,
         })
       }
@@ -263,7 +225,7 @@ export class PageStore extends Store<PageStoreState> {
 
   async loadPageBefore(
     chatId: number,
-    withoutPages: string[],
+    withoutPageKeys: string[],
     dispatchesAfter?: DispatchesAfter
   ) {
     return this.dispatch(
@@ -275,49 +237,34 @@ export class PageStore extends Store<PageStoreState> {
           )
           return
         }
+        const [
+          firstMessageIdIndexOnPageBefore,
+          lastMessageIndexOnPageBefore,
+          noMorePagesFlag,
+        ] = calculateIndexesForPageBefore(state.pageOrdering[0], state.pages)
 
-        const firstPage = state.pages[state.pageOrdering[0]]
-
-        if (!firstPage) {
-          log.debug('loadPageBefore: firstPage is null, returning')
+        if (noMorePagesFlag) {
+          log.debug(`loadPageBefore: no more pages before, returning`)
           return
         }
 
-        const firstMessageIdIndexOnFirstPage = firstPage.firstMessageIdIndex
-
-        const firstMessageIdIndexOnPageBefore = Math.max(
-          0,
-          firstMessageIdIndexOnFirstPage - PAGE_SIZE
-        )
-
-        if (
-          firstMessageIdIndexOnPageBefore === firstMessageIdIndexOnFirstPage
-        ) {
-          log.debug('loadPageBefore: no more messages, returning')
-          return
-        }
-
-        const lastMessageIndexOnPageBefore = Math.min(
-          firstMessageIdIndexOnFirstPage + PAGE_SIZE,
-          firstPage.firstMessageIdIndex - 1
-        )
-        const tmp = await this._loadPageWithFirstMessageIndex(
+        const { pageOrdering, pages } = await loadPageWithFirstMessageIndex(
           state.chatId,
           state.messageIds,
           firstMessageIdIndexOnPageBefore,
           lastMessageIndexOnPageBefore,
-          this.state.unreadMessageIds[0] || 0
+          state.markerOne
         )
 
-        const modifiedState = this._withoutPages(this.state, withoutPages)
+        const modifiedState = withoutPages(this.state, withoutPageKeys)
 
         this.dispatchesAfter(dispatchesAfter)
         setState({
           ...modifiedState,
-          pageOrdering: [...tmp.pageOrdering, ...modifiedState.pageOrdering],
+          pageOrdering: [...pageOrdering, ...modifiedState.pageOrdering],
           pages: {
             ...modifiedState.pages,
-            ...tmp.pages,
+            ...pages,
           },
         })
       },
@@ -338,7 +285,7 @@ export class PageStore extends Store<PageStoreState> {
 
   async loadPageAfter(
     chatId: number,
-    withoutPages: string[],
+    withoutPageKeys: string[],
     dispatchesAfter?: DispatchesAfter
   ) {
     return this.dispatch(
@@ -351,51 +298,43 @@ export class PageStore extends Store<PageStoreState> {
           return
         }
 
-        const lastPage =
-          state.pages[state.pageOrdering[state.pageOrdering.length - 1]]
+        const lastPageKey = state.pageOrdering[state.pageOrdering.length - 1]
+        const [
+          firstMessageIdIndexOnPageAfter,
+          lastMessageIdIndexOnPageAfter,
+          noMorePagesFlag,
+        ] = calculateIndexesForPageAfter(
+          lastPageKey,
+          state.pages,
+          state.messageIds
+        )
 
-        if (!lastPage) {
-          log.debug('loadPageAfter: lastPage is null, returning')
+        if (noMorePagesFlag) {
+          log.debug(`loadPageAfter: no more pages after, returning`)
           return
         }
 
-        const lastMessageIdIndexOnLastPage = lastPage.lastMessageIdIndex
-
-        const firstMessageIdIndexOnPageAfter = Math.min(
-          state.messageIds.length - 1,
-          lastMessageIdIndexOnLastPage + 1
-        )
-
-        if (firstMessageIdIndexOnPageAfter === lastMessageIdIndexOnLastPage) {
-          log.debug('loadPageAfter: no more messages, returning')
-          return
-        }
-
-        const lastMessageIndexOnPageAfter = Math.min(
-          firstMessageIdIndexOnPageAfter + PAGE_SIZE,
-          state.messageIds.length - 1
-        )
         log.debug(
-          `loadPageAfter: loading page with firstMessageIdIndexOnPageAfter: ${firstMessageIdIndexOnPageAfter} lastMessageIndexOnPageAfter: ${lastMessageIndexOnPageAfter}`
+          `loadPageAfter: loading page with firstMessageIdIndexOnPageAfter: ${firstMessageIdIndexOnPageAfter} lastMessageIdIndexOnPageAfter: ${lastMessageIdIndexOnPageAfter}`
         )
 
-        const tmp = await this._loadPageWithFirstMessageIndex(
+        const { pageOrdering, pages } = await loadPageWithFirstMessageIndex(
           state.chatId,
           state.messageIds,
           firstMessageIdIndexOnPageAfter,
-          lastMessageIndexOnPageAfter,
-          this.state.unreadMessageIds[0] || 0
+          lastMessageIdIndexOnPageAfter,
+          this.state.markerOne
         )
 
-        const modifiedState = this._withoutPages(this.state, withoutPages)
+        const modifiedState = withoutPages(this.state, withoutPageKeys)
 
         this.dispatchesAfter(dispatchesAfter)
         setState({
           ...modifiedState,
-          pageOrdering: [...modifiedState.pageOrdering, ...tmp.pageOrdering],
+          pageOrdering: [...modifiedState.pageOrdering, ...pageOrdering],
           pages: {
             ...modifiedState.pages,
-            ...tmp.pages,
+            ...pages,
           },
         })
       },
@@ -403,93 +342,10 @@ export class PageStore extends Store<PageStoreState> {
     )
   }
 
-  async _loadPageWithFirstMessageIndex(
-    chatId: number,
-    messageIds: number[],
-    startMessageIdIndex: number,
-    endMessageIdIndex: number,
-    marker1Before: number
-  ): Promise<{
-    pages: PageStoreState['pages']
-    pageOrdering: PageStoreState['pageOrdering']
-  }> {
-    if (
-      startMessageIdIndex < 0 ||
-      startMessageIdIndex >= messageIds.length ||
-      endMessageIdIndex < startMessageIdIndex ||
-      endMessageIdIndex >= messageIds.length
-    ) {
-      throw new Error(
-        `_loadPageWithFirstMessage: pageFirstMessageIdIndex out of bound, returning startMessageIdIndex: ${startMessageIdIndex} endMessageIdIndex: ${endMessageIdIndex}`
-      )
-    }
-    const messageId = messageIds[startMessageIdIndex]
-
-    if (startMessageIdIndex === -1) {
-      throw new Error(
-        `_loadPageWithFirstMessage: messageId ${messageId} is not in messageIds`
-      )
-    }
-
-    const pageMessageIds = messageIds.slice(
-      startMessageIdIndex,
-      endMessageIdIndex + 1
-    )
-
-    const pageMessages = await DeltaBackend.call(
-      'messageList.getMessages',
-      chatId,
-      startMessageIdIndex,
-      endMessageIdIndex,
-      marker1Before
-    )
-
-    const pageKey = `page-${startMessageIdIndex}-${endMessageIdIndex}`
-
-    return {
-      pages: {
-        [pageKey]: {
-          firstMessageIdIndex: startMessageIdIndex,
-          lastMessageIdIndex: endMessageIdIndex,
-          messageIds: pageMessageIds,
-          messages: pageMessages,
-          key: pageKey,
-        },
-      },
-      pageOrdering: [pageKey],
-    }
-  }
-
   removePage(pageKey: string) {
     this.dispatch('removePage', async (state, setState) => {
-      setState(this._withoutPages(state, [pageKey]))
+      setState(withoutPages(state, [pageKey]))
     })
-  }
-
-  _withoutPages(
-    state: PageStoreState,
-    withoutPageKeys: string[]
-  ): PageStoreState {
-    const pages: Partial<PageStoreState['pages']> = {}
-    const pageOrdering: Partial<PageStoreState['pageOrdering']> = []
-
-    let modified = false
-    for (const pageKey of state.pageOrdering) {
-      const without = withoutPageKeys.indexOf(pageKey) !== -1
-
-      if (without) continue
-      modified = true
-      pages[pageKey] = state.pages[pageKey]
-      pageOrdering.push(pageKey)
-    }
-
-    if (!modified) return state
-
-    return {
-      ...state,
-      pageOrdering,
-      pages,
-    }
   }
 
   sendMessage(chatId: number, messageParams: sendMessageParams) {
@@ -507,31 +363,27 @@ export class PageStore extends Store<PageStoreState> {
         // Workaround for failed messages
         return
       }
-      const unreadMessageIds = await DeltaBackend.call(
-        'messageList.getUnreadMessageIds',
-        chatId
-      )
-
-      const firstUnreadMessageId =
-        unreadMessageIds.length > 0 ? unreadMessageIds[0] : -1
-      const marker1MessageId = firstUnreadMessageId || 0
-      const marker1MessageCount = unreadMessageIds.length
-
-      const messageIds = await DeltaBackend.call(
-        'messageList.getMessageIds',
+      const {
+        unreadMessageIds,
+        messageIds,
+        markerOne,
+      } = await getUnreadMessageIdsMarkerOneAndMessageIds(
         chatId,
-        marker1MessageId
+        state.markerOne
       )
 
       const lastMessageIndex = messageIds.length - 1
-      const firstMessageIndex = Math.max(lastMessageIndex - PAGE_SIZE, 0)
+      const firstMessageIndex = safeMessageIdIndex(
+        lastMessageIndex - PAGE_SIZE,
+        messageIds.length
+      )
 
-      const { pages, pageOrdering } = await this._loadPageWithFirstMessageIndex(
+      const { pages, pageOrdering } = await loadPageWithFirstMessageIndex(
         chatId,
         messageIds,
         firstMessageIndex,
         lastMessageIndex,
-        marker1MessageId
+        markerOne
       )
 
       this.pushLayoutEffect({
@@ -546,108 +398,12 @@ export class PageStore extends Store<PageStoreState> {
         chatId,
         messageIds,
         unreadMessageIds,
-        marker1MessageId,
-        marker1MessageCount,
+        markerOne: state.markerOne,
         loading: false,
       }
 
       await setState(newState)
     })
-  }
-
-  _indexOfMessageId(
-    state: PageStoreState,
-    messageId: number,
-    iterateFromback?: boolean
-  ): number {
-    iterateFromback = iterateFromback === true
-    const messageIdsLength = state.messageIds.length
-    for (
-      let i = iterateFromback ? messageIdsLength - 1 : 0;
-      iterateFromback ? i >= 0 : i < messageIdsLength;
-      iterateFromback ? i-- : i++
-    ) {
-      if (state.messageIds[i] === messageId) {
-        return i
-      }
-    }
-    return -1
-  }
-
-  _findPageWithMessageId(
-    state: PageStoreState,
-    messageId: number,
-    iterateFromback?: boolean
-  ): {
-    pageKey: string
-    indexOnPage: number
-    messageIdIndex: number
-    messageKey: string
-  } {
-    const messageIdIndex = this._indexOfMessageId(
-      state,
-      messageId,
-      iterateFromback
-    )
-
-    return this._findPageWithMessageIndex(state, messageIdIndex)
-  }
-
-  _findPageWithMessageIndex(
-    state: PageStoreState,
-    messageIdIndex: number
-  ): {
-    pageKey: string
-    indexOnPage: number
-    messageIdIndex: number
-    messageKey: string
-  } {
-    let pageKey: string = null
-    let indexOnPage = -1
-
-    const messageId = state.messageIds[messageIdIndex]
-    if (messageIdIndex !== -1) {
-      for (const currentPageKey of state.pageOrdering) {
-        const currentPage = state.pages[currentPageKey]
-        if (
-          messageIdIndex >= currentPage.firstMessageIdIndex &&
-          messageIdIndex <= currentPage.lastMessageIdIndex
-        ) {
-          pageKey = currentPageKey
-          indexOnPage = messageIdIndex - currentPage.firstMessageIdIndex
-          break
-        }
-      }
-    }
-
-    return {
-      pageKey,
-      indexOnPage,
-      messageIdIndex,
-      messageKey: calculateMessageKey(pageKey, messageId, messageIdIndex),
-    }
-  }
-
-  _updateMessage(
-    state: PageStoreState,
-    pageKey: string,
-    indexOnPage: number,
-    updatedMessage: MessageType
-  ): PageStoreState {
-    return {
-      ...state,
-      pages: {
-        ...state.pages,
-        [pageKey]: {
-          ...state.pages[pageKey],
-          messages: [
-            ...state.pages[pageKey].messages.slice(0, indexOnPage),
-            updatedMessage,
-            ...state.pages[pageKey].messages.slice(indexOnPage + 1),
-          ],
-        },
-      },
-    }
   }
 
   refresh(
@@ -674,14 +430,10 @@ export class PageStore extends Store<PageStoreState> {
           return
         }
 
-        const unreadMessageIds = await DeltaBackend.call(
-          'messageList.getUnreadMessageIds',
-          chatId
-        )
-        const firstUnreadMessageId =
-          unreadMessageIds.length > 0 ? unreadMessageIds[0] : -1
-        const marker1MessageId = firstUnreadMessageId || 0
-        const marker1MessageCount = unreadMessageIds.length
+        const {
+          unreadMessageIds,
+          markerOne,
+        } = await getUnreadMessageIdsAndMarkerOne(chatId, state.markerOne)
 
         if (
           yourIncrementingDispatchedCounter !==
@@ -694,20 +446,17 @@ export class PageStore extends Store<PageStoreState> {
         const [
           firstMessageIndex,
           lastMessageIndex,
-        ] = this._calculateIndexesForPageWithMessageIdInMiddle(
+        ] = calculateIndexesForPageWithMessageIdInMiddle(
           messageIds,
           firstMessageOnScreenIndex
         )
 
-        const {
-          pages,
-          pageOrdering,
-        } = await this._loadPageWithFirstMessageIndex(
+        const { pages, pageOrdering } = await loadPageWithFirstMessageIndex(
           chatId,
           messageIds,
           firstMessageIndex,
           lastMessageIndex,
-          marker1MessageId
+          markerOne
         )
 
         if (
@@ -724,13 +473,12 @@ export class PageStore extends Store<PageStoreState> {
           chatId,
           messageIds,
           unreadMessageIds,
-          marker1MessageId,
-          marker1MessageCount,
+          markerOne,
           loading: false,
         }
 
         if (relativeScrollPosition !== -1) {
-          const { messageKey } = this._findPageWithMessageIndex(
+          const { messageKey } = findPageWithMessageIndex(
             newState,
             firstMessageOnScreenIndex
           )
@@ -761,7 +509,7 @@ export class PageStore extends Store<PageStoreState> {
         )
         return
       }
-      const { pageKey, indexOnPage } = this._findPageWithMessageId(
+      const { pageKey, indexOnPage } = findPageWithMessageId(
         state,
         messageId,
         true
@@ -777,7 +525,7 @@ export class PageStore extends Store<PageStoreState> {
       const message = state.pages[pageKey].messages[indexOnPage]
 
       setState(
-        this._updateMessage(state, pageKey, indexOnPage, {
+        updateMessage(state, pageKey, indexOnPage, {
           ...message,
           state: MessageState.OUT_DELIVERED,
         } as Message)
@@ -793,7 +541,7 @@ export class PageStore extends Store<PageStoreState> {
         )
         return
       }
-      const { pageKey, indexOnPage } = this._findPageWithMessageId(
+      const { pageKey, indexOnPage } = findPageWithMessageId(
         state,
         messageId,
         true
@@ -809,7 +557,7 @@ export class PageStore extends Store<PageStoreState> {
       const message = state.pages[pageKey].messages[indexOnPage]
 
       setState(
-        this._updateMessage(state, pageKey, indexOnPage, {
+        updateMessage(state, pageKey, indexOnPage, {
           ...message,
           state: MessageState.OUT_FAILED,
         } as Message)
@@ -825,7 +573,7 @@ export class PageStore extends Store<PageStoreState> {
         )
         return
       }
-      const { pageKey, indexOnPage } = this._findPageWithMessageId(
+      const { pageKey, indexOnPage } = findPageWithMessageId(
         state,
         messageId,
         true
@@ -841,7 +589,7 @@ export class PageStore extends Store<PageStoreState> {
       const message = state.pages[pageKey].messages[indexOnPage]
 
       setState(
-        this._updateMessage(state, pageKey, indexOnPage, {
+        updateMessage(state, pageKey, indexOnPage, {
           ...message,
           state: MessageState.OUT_MDN_RCVD,
         } as Message)
@@ -870,7 +618,7 @@ export class PageStore extends Store<PageStoreState> {
 
       let update = false
       for (const messageId of messageIds) {
-        const { pageKey } = this._findPageWithMessageId(state, messageId, true)
+        const { pageKey } = findPageWithMessageId(state, messageId, true)
         if (pageKey === null) {
           log.debug(
             `markMessagesSeen: Couldn't find messageId in any shown pages. Returning`
@@ -927,29 +675,3 @@ export const MessageListStore = new PageStore(
   defaultPageStoreState(),
   'MessageListStore'
 )
-
-export function calculateMessageKey(
-  pageKey: string,
-  messageId: number,
-  messageIndex: number
-): string {
-  return pageKey + '-' + messageId + '-' + messageIndex
-}
-
-export function parseMessageKey(
-  messageKey: string
-): {
-  pageKey: string
-  messageId: number
-  messageIndex: number
-} {
-  const splittedMessageKey = messageKey.split('-')
-  if (splittedMessageKey[0] !== 'page' && splittedMessageKey.length === 5) {
-    throw new Error('Expected a proper messageKey')
-  }
-  return {
-    pageKey: `page-${splittedMessageKey[1]}-${splittedMessageKey[2]}`,
-    messageId: Number.parseInt(splittedMessageKey[3]),
-    messageIndex: Number.parseInt(splittedMessageKey[4]),
-  }
-}

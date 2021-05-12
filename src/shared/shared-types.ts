@@ -234,7 +234,14 @@ export type MessageDayMarker = {
   timestamp: number
 }
 
-export type MessageMarkerOne = { type: MessageTypeIs.MarkerOne }
+export type MessageMarkerOne = {
+  type: MessageTypeIs.MarkerOne
+  count: number
+}
+
+export type MarkerOneParams = {
+  [key: number]: number
+}
 
 export type MessageType = MessageMarkerOne | MessageDayMarker | Message | null
 

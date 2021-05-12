@@ -17,6 +17,7 @@ import {
   MessageType,
   MessageQuote,
   MessageTypeIs,
+  MarkerOneParams,
 } from '../../shared/shared-types'
 
 import { writeFile } from 'fs-extra'
@@ -255,15 +256,22 @@ export default class DCMessageList extends SplitOut {
     this._controller.chatList.selectChat(chatId)
   }
 
-  getMessageIds(chatId: number, marker1Before?: number) {
+  getMessageIds(chatId: number, markerOne?: MarkerOneParams) {
     log.debug(
-      `getMessageIds: chatId: ${chatId} marker1Before: ${marker1Before}`
+      `getMessageIds: chatId: ${chatId} markerOne: ${JSON.stringify(markerOne)}`
     )
-    const messageIds = this._dc.getChatMessages(
+    const messageIds = []
+
+    for (const messageId of this._dc.getChatMessages(
       chatId,
       C.DC_GCM_ADDDAYMARKER,
-      marker1Before || 0
-    )
+      0
+    )) {
+      if (markerOne && markerOne[messageId]) {
+        messageIds.push(C.DC_MSG_ID_MARKER1)
+      }
+      messageIds.push(messageId)
+    }
     return messageIds
   }
 
@@ -272,13 +280,15 @@ export default class DCMessageList extends SplitOut {
     chatId: number,
     indexStart: number,
     indexEnd: number,
-    marker1Before?: number
+    markerOne?: MarkerOneParams
   ): Promise<MessageType[]> {
-    log.debug(`getMessages: chatId: ${chatId} marker1Before: ${marker1Before}`)
-    const messageIds = this.getMessageIds(chatId, marker1Before)
+    log.debug(
+      `getMessages: chatId: ${chatId} markerOne: ${JSON.stringify(markerOne)}`
+    )
+    const messageIds = this.getMessageIds(chatId, markerOne)
 
     const length = indexEnd - indexStart
-    const messages: MessageType[] = new Array(length + 1)
+    const messages: MessageType[] = []
     for (let i = 0; i <= length; i++) {
       const messageIndex = indexStart + i
       const messageId = messageIds[messageIndex]
@@ -297,6 +307,7 @@ export default class DCMessageList extends SplitOut {
       } else if (messageId === C.DC_MSG_ID_MARKER1) {
         messageObject = {
           type: MessageTypeIs.MarkerOne,
+          count: markerOne[messageIds[messageIndex + 1]],
         }
       } else if (messageId <= C.DC_MSG_ID_LAST_SPECIAL) {
         log.debug(
@@ -309,9 +320,9 @@ export default class DCMessageList extends SplitOut {
           messageObject = message
         }
       }
-
-      messages[i] = messageObject
+      messages.push(messageObject)
     }
+    console.log('xxx', JSON.stringify(messages))
     return messages
   }
 
