@@ -13,6 +13,7 @@
 - allow starting a viedochat in groups
 - add local help for zh_CN and fr
 - add missing Czech translation #2218
+- add support for handling `mailto:` links.
 
 ## Fixed
 - Fix soure-mapped stacktrace on crashscreen in bundled production builds
