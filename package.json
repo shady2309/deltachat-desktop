@@ -85,7 +85,7 @@
     "array-differ": "^3.0.0",
     "classnames": "^2.2.6",
     "debounce": "^1.2.0",
-    "deltachat-node": "1.54.0",
+    "deltachat-node": "git+https://github.com/deltachat/deltachat-node.git#d0d7d0e572652af2e6193c0f9777933c908ce1e3",
     "emoji-js-clean": "^4.0.0",
     "emoji-mart": "^3.0.0",
     "emoji-regex": "^9.2.0",
@@ -110,7 +110,7 @@
     "simple-markdown": "^0.7.1",
     "source-map-support": "^0.5.19",
     "tempy": "^0.3.0",
-    "url-parse": "^1.4.7",
+    "url-parse": "^1.5.1",
     "use-debounce": "^3.3.0",
     "wolfy87-eventemitter": "^5.2.9"
   },

@@ -47,19 +47,19 @@
   "puny_code_warning_header": {
     "message": "Suspicious Link detected"
   },
-  "puny_code_warning_question":{
+  "puny_code_warning_question": {
     "message": "Are you sure you want to visit $$asciiHostname$$?"
   },
   "puny_code_warning_description": {
     "message": "You followed a link which could be misrepresenting characters by using similarly looking ones from different alphabets. Following the link labelled $$originalHostname$$ will lead to $$asciiHostname$$ which is normal for non-Latin characters. If you did not expect such characters this link could be harmful."
   },
-  "menu_learn_spelling":{
+  "menu_learn_spelling": {
     "message": "Learn Spelling"
   },
   "menu_copy_image_to_clipboard": {
     "message": "Copy Image"
   },
-  "no_spellcheck_suggestions_found":{
+  "no_spellcheck_suggestions_found": {
     "message": "No Spelling Suggestions found"
   },
   "forwared_by": {
@@ -76,5 +76,14 @@
   },
   "show_full_message_in_browser": {
     "message": "Show full message in browser…"
+  },
+  "mailto_dialog_header_select_chat": {
+    "message": "Select chat to send the message to"
+  },
+  "mailto_dialog_confirm_replace_draft": {
+    "message": "%1$s already has a draft message, do you want to replace it?"
+  },
+  "mailto_link_could_not_be_decoded": {
+    "message": "mailto link could not be decoded: %1$s"
   }
 }
