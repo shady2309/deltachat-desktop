@@ -11,11 +11,11 @@
   overflow: hidden;
 
   .unread-message-counter {
-    $heightUnreadCounter: 30px;
+    $heightUnreadCounter: 20px;
     $heightJumpToBottomButton: 40px;
     $width: 40px;
-    $marginBottom: 20px;
-    $marginRight: 10px;
+    $marginBottom: 10px;
+    $marginRight: 15px;
 
     position: relative;
     left: calc(100% - #{$width} - #{$marginRight});
@@ -30,11 +30,13 @@
       height: $heightUnreadCounter;
 
       margin: 0 auto;
+      margin-bottom: 3px;
       border-radius: 100%;
 
       background-color: var(--colorPrimary);
       color: white;
-      line-height: $heightUnreadCounter;
+      line-height: 20px;
+      font-size: 15px;
       text-align: center;
     }
 
@@ -50,8 +52,17 @@
       line-height: $heightJumpToBottomButton;
       background-color: white;
       border-radius: 100%;
+      box-shadow: 0px 3px 5px #66666630;
 
       cursor: pointer;
+      .jump-to-bottom-icon {
+        height: $heightJumpToBottomButton;
+        width: $width;
+        
+        -webkit-mask: url(../images/ic_scroll_down.png) no-repeat center;
+        -webkit-mask-size: 65%;
+        background-color: var(--scrollbarThumb);
+      }
     }
   }
 }

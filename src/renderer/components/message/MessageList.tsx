@@ -136,7 +136,6 @@ function isOnePageOrMoreAwayFromNewestMessage(
   const debug = (str: String) =>
     log.debug('isOnePageOrMoreAwayFromNewestMessage: ' + str)
 
-  console.log(messageListStore)
   const newestMessageIndex = messageListStore.messageIds.length - 1
   debug(`newestMessageIndex: ${newestMessageIndex}`)
   const lastLoadedPageKey =
@@ -771,11 +770,9 @@ const MessageList = React.memo(function MessageList({
         messageListStore.unreadMessageIds.length > 0) && (
         <>
           <div className='unread-message-counter'>
-            {messageListStore.unreadMessageIds.length > 0 && (
-              <div className='counter'>
-                {messageListStore.unreadMessageIds.length}
-              </div>
-            )}
+            <div className='counter' style={ messageListStore.unreadMessageIds.length === 0 ? {display: 'none'} : null}>
+              {messageListStore.unreadMessageIds.length}
+            </div>
             <div
               className='jump-to-bottom-button'
               onClick={() => {
@@ -790,7 +787,9 @@ const MessageList = React.memo(function MessageList({
                   ]
                 )
               }}
-            />
+            >
+              <div className='jump-to-bottom-icon' />
+            </div>
           </div>
         </>
       )}
