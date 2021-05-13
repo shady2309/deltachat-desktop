@@ -25,17 +25,14 @@
     .counter {
       position: relative;
       z-index: 10;
-
-      width: $heightUnreadCounter;
-      height: $heightUnreadCounter;
-
+      width: 25px;
+      height: 25px;
       margin: 0 auto;
-      margin-bottom: 3px;
+      margin-bottom: 0px;
       border-radius: 100%;
-
       background-color: var(--colorPrimary);
-      color: white;
-      line-height: 20px;
+      color: #fff;
+      line-height: 25px;
       font-size: 15px;
       text-align: center;
     }
@@ -58,7 +55,7 @@
       .jump-to-bottom-icon {
         height: $heightJumpToBottomButton;
         width: $width;
-        
+
         -webkit-mask: url(../images/ic_scroll_down.png) no-repeat center;
         -webkit-mask-size: 65%;
         background-color: var(--scrollbarThumb);
