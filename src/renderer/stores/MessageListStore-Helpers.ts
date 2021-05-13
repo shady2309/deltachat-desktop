@@ -1,6 +1,6 @@
 import { MarkerOneParams, MessageType } from '../../shared/shared-types'
 import { DeltaBackend } from '../delta-remote'
-import { PageStoreState, PAGE_SIZE } from './messagelist'
+import { MessageListPage, PageStoreState, PAGE_SIZE } from './MessageListStore'
 
 export async function loadPageWithFirstMessageIndex(
   chatId: number,
@@ -43,7 +43,7 @@ export async function loadPageWithFirstMessageIndex(
     markerOne
   )
 
-  const pageKey = `page-${startMessageIdIndex}-${endMessageIdIndex}`
+  const pageKey = calculatePageKey(startMessageIdIndex, endMessageIdIndex)
 
   return {
     pages: {
@@ -92,14 +92,8 @@ export function calculateIndexesForLastPage(messageIds: number[]) {
 }
 
 export function calculateIndexesForPageBefore(
-  pageKey: string,
-  pages: PageStoreState['pages']
+  page: MessageListPage
 ): [number, number, boolean] {
-  const page = pages[pageKey]
-
-  if (!page) {
-    return [-1, -1, false]
-  }
 
   const firstMessageIdIndexOnPage = page.firstMessageIdIndex
 
@@ -109,7 +103,7 @@ export function calculateIndexesForPageBefore(
   )
 
   if (firstMessageIdIndexOnPageBefore === firstMessageIdIndexOnPage) {
-    return [-1, -1, false]
+    return [-1, -1, true]
   }
 
   const lastMessageIndexOnPageBefore = Math.min(
@@ -117,20 +111,13 @@ export function calculateIndexesForPageBefore(
     page.firstMessageIdIndex - 1
   )
 
-  return [firstMessageIdIndexOnPageBefore, lastMessageIndexOnPageBefore, true]
+  return [firstMessageIdIndexOnPageBefore, lastMessageIndexOnPageBefore, false]
 }
 
 export function calculateIndexesForPageAfter(
-  pageKey: string,
-  pages: PageStoreState['pages'],
+  page: MessageListPage,
   messageIds: number[]
 ): [number, number, boolean] {
-  const page = pages[pageKey]
-
-  if (!page) {
-    return [-1, -1, false]
-  }
-
   const lastMessageIdIndexOnPage = page.lastMessageIdIndex
 
   const firstMessageIdIndexOnPageAfter = Math.min(
@@ -139,7 +126,7 @@ export function calculateIndexesForPageAfter(
   )
 
   if (firstMessageIdIndexOnPageAfter === lastMessageIdIndexOnPage) {
-    return [-1, -1, false]
+    return [-1, -1, true]
   }
 
   const lastMessageIdIndexOnPageAfter = Math.min(
@@ -147,7 +134,7 @@ export function calculateIndexesForPageAfter(
     messageIds.length - 1
   )
 
-  return [firstMessageIdIndexOnPageAfter, lastMessageIdIndexOnPageAfter, true]
+  return [firstMessageIdIndexOnPageAfter, lastMessageIdIndexOnPageAfter, false]
 }
 
 export async function loadPageWithMessageIndexInMiddle(
@@ -290,6 +277,12 @@ export function updateMessage(
   }
 }
 
+export function calculatePageKey(
+  firstMessageIdIndex: number | string,
+  lastMessageIdIndex: number | string
+): string {
+  return `page-${firstMessageIdIndex}-${lastMessageIdIndex}`
+}
 export function calculateMessageKey(
   pageKey: string,
   messageId: number,
@@ -310,7 +303,7 @@ export function parseMessageKey(
     throw new Error('Expected a proper messageKey')
   }
   return {
-    pageKey: `page-${splittedMessageKey[1]}-${splittedMessageKey[2]}`,
+    pageKey: calculatePageKey(splittedMessageKey[1], splittedMessageKey[2]),
     messageId: Number.parseInt(splittedMessageKey[3]),
     messageIndex: Number.parseInt(splittedMessageKey[4]),
   }

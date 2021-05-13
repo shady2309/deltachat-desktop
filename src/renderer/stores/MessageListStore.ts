@@ -22,7 +22,7 @@ import {
   safeMessageIdIndex,
   updateMessage,
   withoutPages,
-} from './messagelist-helpers'
+} from './MessageListStore-Helpers'
 import Store, {
   Action,
   OnlyDispatchIfCurrentlyDispatchedCounterEqualsZero,
@@ -237,11 +237,18 @@ export class PageStore extends Store<PageStoreState> {
           )
           return
         }
+        const lastPage = state.pages[state.pageOrdering[0]]
+
+        if(!lastPage) {
+          log.debug(`loadPageBefore: couldn't find last page??? Returning`)
+          return
+        }
+
         const [
           firstMessageIdIndexOnPageBefore,
           lastMessageIndexOnPageBefore,
           noMorePagesFlag,
-        ] = calculateIndexesForPageBefore(state.pageOrdering[0], state.pages)
+        ] = calculateIndexesForPageBefore(lastPage)
 
         if (noMorePagesFlag) {
           log.debug(`loadPageBefore: no more pages before, returning`)
@@ -298,14 +305,20 @@ export class PageStore extends Store<PageStoreState> {
           return
         }
 
+
         const lastPageKey = state.pageOrdering[state.pageOrdering.length - 1]
+        const lastPage = state.pages[lastPageKey]
+        if (!lastPage) {
+          log.debug(`loadPageAfter: could not find last page, returning`)
+          return
+        }
+
         const [
           firstMessageIdIndexOnPageAfter,
           lastMessageIdIndexOnPageAfter,
           noMorePagesFlag,
         ] = calculateIndexesForPageAfter(
-          lastPageKey,
-          state.pages,
+          lastPage,
           state.messageIds
         )
 
@@ -671,7 +684,9 @@ export class PageStore extends Store<PageStoreState> {
   }
 }
 
-export const MessageListStore = new PageStore(
+const MessageListStore = new PageStore(
   defaultPageStoreState(),
   'MessageListStore'
 )
+
+export default MessageListStore
