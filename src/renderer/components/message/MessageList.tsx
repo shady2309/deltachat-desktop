@@ -578,6 +578,7 @@ const MessageList = React.memo(function MessageList({
   }
 
   const onScroll = () => {
+    if (MessageListStore.state.messageIds.length === 0) return
     setOnePageAwayFromNewestMessage(
       isOnePageOrMoreAwayFromNewestMessage(
         MessageListStore.state,
