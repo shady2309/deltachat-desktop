@@ -642,7 +642,7 @@ const MessageList = React.memo(function MessageList({
               className='counter'
               style={
                 messageListStore.unreadMessageIds.length === 0
-                  ? { display: 'none' }
+                  ? { visibility: 'hidden' }
                   : null
               }
             >
@@ -693,7 +693,7 @@ export function MessagePage({
         {page.messageIds.map((messageId: MessageId, index) => {
           const messageIndex = firstMessageIdIndex + index
           const message: MessageType = page.messages[index]
-          if (message === null) return null
+          if (!message) return null
           const messageKey = calculateMessageKey(
             page.key,
             messageId,

@@ -124,7 +124,7 @@ export class PageStore extends Store<PageStoreState> {
             chatId,
             messageIds,
             firstUnreadMessageIdIndex,
-            {}
+            markerOne
           )
           pages = tmp.pages
           pageOrdering = tmp.pageOrdering

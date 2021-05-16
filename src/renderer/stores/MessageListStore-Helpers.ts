@@ -64,7 +64,9 @@ export function calculateIndexesForPageWithMessageIdInMiddle(
   middleMessageIdIndex: number
 ): [number, number] {
   let firstMessageIdIndex = Math.max(middleMessageIdIndex - 3, 0)
+  
   const currentDistance = middleMessageIdIndex - firstMessageIdIndex
+
   let remainingDistance = PAGE_SIZE - currentDistance
   const lastMessageIdIndex = Math.min(
     middleMessageIdIndex + remainingDistance,
@@ -85,7 +87,7 @@ export function calculateIndexesForLastPage(messageIds: number[]) {
     messageIds.length - PAGE_SIZE
   )
   const lastMessageIdIndexOnLastPage = Math.min(
-    firstMessageIdIndexOnLastPage + PAGE_SIZE,
+    firstMessageIdIndexOnLastPage + PAGE_SIZE - 1,
     messageIds.length - 1
   )
   return [firstMessageIdIndexOnLastPage, lastMessageIdIndexOnLastPage]
@@ -130,7 +132,7 @@ export function calculateIndexesForPageAfter(
   }
 
   const lastMessageIdIndexOnPageAfter = Math.min(
-    firstMessageIdIndexOnPageAfter + PAGE_SIZE,
+    firstMessageIdIndexOnPageAfter + PAGE_SIZE - 1,
     messageIds.length - 1
   )
 

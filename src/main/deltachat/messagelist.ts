@@ -287,10 +287,8 @@ export default class DCMessageList extends SplitOut {
     )
     const messageIds = this.getMessageIds(chatId, markerOne)
 
-    const length = indexEnd - indexStart
     const messages: MessageType[] = []
-    for (let i = 0; i <= length; i++) {
-      const messageIndex = indexStart + i
+    for (let messageIndex = indexStart; messageIndex <= indexEnd; messageIndex++) {
       const messageId = messageIds[messageIndex]
 
       let messageObject: MessageType = null
@@ -315,14 +313,14 @@ export default class DCMessageList extends SplitOut {
         )
       } else {
         const msg = this._dc.getMessage(messageId)
-        if (msg) {
-          const message = this._messageToJson(msg)
-          messageObject = message
+        if (!msg) {
+          continue
         }
+        const message = this._messageToJson(msg)
+        messageObject = message
       }
       messages.push(messageObject)
     }
-    console.log('xxx', JSON.stringify(messages))
     return messages
   }
 
