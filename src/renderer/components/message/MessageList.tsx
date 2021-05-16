@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import
-  MessageListStore, {
+import MessageListStore, {
   MessageId,
   MessageListPage,
 } from '../../stores/MessageListStore'
@@ -23,10 +22,16 @@ import {
   calculateMessageKey,
   parseMessageKey,
 } from '../../stores/MessageListStore-Helpers'
-import { isScrolledToBottom, withoutTopPages, withoutBottomPages, messagesInView, rotateAwayFromIndex, isOnePageOrMoreAwayFromNewestMessage } from './MessageList-Helpers'
+import {
+  isScrolledToBottom,
+  withoutTopPages,
+  withoutBottomPages,
+  messagesInView,
+  rotateAwayFromIndex,
+  isOnePageOrMoreAwayFromNewestMessage,
+} from './MessageList-Helpers'
 
 const log = getLogger('renderer/message/MessageList')
-
 
 const MessageList = React.memo(function MessageList({
   chat,
@@ -538,6 +543,7 @@ const MessageList = React.memo(function MessageList({
     // ONLY FOR DEBUGGING, REMOVE BEFORE MERGE
     ;((window as unknown) as any).messagesInView = () => {
       for (const m of messagesInView(messageListRef)) {
+        /* ignore-console-log */
         console.debug(m.messageElement)
       }
     }

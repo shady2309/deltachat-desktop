@@ -288,7 +288,11 @@ export default class DCMessageList extends SplitOut {
     const messageIds = this.getMessageIds(chatId, markerOne)
 
     const messages: MessageType[] = []
-    for (let messageIndex = indexStart; messageIndex <= indexEnd; messageIndex++) {
+    for (
+      let messageIndex = indexStart;
+      messageIndex <= indexEnd;
+      messageIndex++
+    ) {
       const messageId = messageIds[messageIndex]
 
       let messageObject: MessageType = null

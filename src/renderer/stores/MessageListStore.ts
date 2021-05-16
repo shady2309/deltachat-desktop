@@ -239,7 +239,7 @@ export class PageStore extends Store<PageStoreState> {
         }
         const lastPage = state.pages[state.pageOrdering[0]]
 
-        if(!lastPage) {
+        if (!lastPage) {
           log.debug(`loadPageBefore: couldn't find last page??? Returning`)
           return
         }
@@ -305,7 +305,6 @@ export class PageStore extends Store<PageStoreState> {
           return
         }
 
-
         const lastPageKey = state.pageOrdering[state.pageOrdering.length - 1]
         const lastPage = state.pages[lastPageKey]
         if (!lastPage) {
@@ -317,10 +316,7 @@ export class PageStore extends Store<PageStoreState> {
           firstMessageIdIndexOnPageAfter,
           lastMessageIdIndexOnPageAfter,
           noMorePagesFlag,
-        ] = calculateIndexesForPageAfter(
-          lastPage,
-          state.messageIds
-        )
+        ] = calculateIndexesForPageAfter(lastPage, state.messageIds)
 
         if (noMorePagesFlag) {
           log.debug(`loadPageAfter: no more pages after, returning`)

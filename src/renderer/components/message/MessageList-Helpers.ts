@@ -1,5 +1,5 @@
-import { getLogger } from "../../../shared/logger"
-import MessageListStore, { PageStoreState } from "../../stores/MessageListStore"
+import { getLogger } from '../../../shared/logger'
+import MessageListStore, { PageStoreState } from '../../stores/MessageListStore'
 
 const log = getLogger('renderer/message/MessageList-Helpers')
 
@@ -67,7 +67,9 @@ export function withoutBottomPages(
   return withoutPages
 }
 
-export function* messagesInView(messageListRef: React.MutableRefObject<HTMLElement>) {
+export function* messagesInView(
+  messageListRef: React.MutableRefObject<HTMLElement>
+) {
   const messageElements = document
     .querySelector('#message-list')
     .querySelectorAll('li')
@@ -143,7 +145,11 @@ export function isOnePageOrMoreAwayFromNewestMessage(
   return true
 }
 
-export function mathInBetween(windowLow: number, windowHigh: number, value: number) {
+export function mathInBetween(
+  windowLow: number,
+  windowHigh: number,
+  value: number
+) {
   return value >= windowLow && value <= windowHigh
 }
 
