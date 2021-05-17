@@ -39,7 +39,7 @@ async function load() {
 function saveImmediate(state: Partial<AppState>, cb?: (err: any) => void) {
   log.info(`Saving state to ${appConfig.filePath}`)
   const copy = Object.assign({}, state.saved)
-  delete copy.credentials // remove deprecated value
+  delete (copy as any).credentials // remove deprecated value
   appConfig.write(copy, (err: any) => {
     if (err) {
       log.error('State save failed', err)

@@ -103,7 +103,6 @@ export default class DCLoginController extends SplitOut {
     this.close()
     this._controller._resetState()
 
-    app.state.saved.credentials = null
     app.state.saved.lastAccount = null
     app.saveState()
 
@@ -184,7 +183,6 @@ export default class DCLoginController extends SplitOut {
   }
 
   async getLastLoggedInAccount() {
-    const savedCredentials = app.state.saved.credentials
     let selectedAccount: DeltaChatAccount | null = null
     const lastAccount = app.state.saved.lastAccount
     if (typeof lastAccount === 'string' && lastAccount.length >= 1) {
@@ -195,27 +193,6 @@ export default class DCLoginController extends SplitOut {
         log.error(
           'Previous account not found!',
           app.state.saved.lastAccount,
-          'is not in the list of found logins:',
-          app.state.logins
-        )
-      }
-    } else if (
-      savedCredentials &&
-      typeof savedCredentials === 'object' &&
-      Object.keys(savedCredentials).length !== 0
-    ) {
-      // (fallback to old system)
-      // if we find saved credentials we login in with these
-      // which will create a new Deltachat instance which
-      // is bound to a certain account
-      selectedAccount = app.state.logins.find(
-        account => account.addr === savedCredentials.addr
-      )
-
-      if (!selectedAccount) {
-        log.warn(
-          'Previous account not found!',
-          app.state.saved.credentials,
           'is not in the list of found logins:',
           app.state.logins
         )

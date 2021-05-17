@@ -25,6 +25,9 @@
 - initialize name field in contact profile dialog with previously manually set name and use authname as a placeholder
 - show context menu also for video chat messages
 
+### Removed
+- removed logic to login into last used account using the ancient deprecated `credentials.addr` field in the configuration file. (this method is not used since 1.4.2)
+
 ### Changed
 
 - update translations (02.05.2021)

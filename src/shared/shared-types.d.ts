@@ -27,8 +27,6 @@ export interface DesktopSettings {
       }
     | {}
   chatViewBgImg: string
-  /** @deprecated replaced by lastAccount */
-  credentials: Credentials
   /** path to last used/selected Account */
   lastAccount: string
   enableAVCalls: boolean
