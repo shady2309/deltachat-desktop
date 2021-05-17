@@ -70,7 +70,6 @@ export default class DCLoginController extends SplitOut {
 
     this._controller.emit('ready')
     // save last logged in account
-    delete app.state.saved.credentials
     app.state.saved.lastAccount = basename(accountDir)
 
     log.info('dc_get_info', dc.getInfo())
