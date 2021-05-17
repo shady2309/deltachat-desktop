@@ -33,6 +33,7 @@ import OfflineToast from './OfflineToast'
 import { C } from 'deltachat-node/dist/constants'
 import MapComponent from './map/MapComponent'
 import MessageListProfile from './dialogs/MessageListProfile'
+import { FullChat } from '../../shared/shared-types'
 
 enum View {
   MessageList,
@@ -193,7 +194,7 @@ export default function MainScreen() {
                     )}
                   </div>
                   <div className='navbar-chat-subtile'>
-                    {selectedChat.subtitle}
+                    {getChatSubtitle(selectedChat)}
                   </div>
                 </div>
               </NavbarHeading>
@@ -264,4 +265,30 @@ export default function MainScreen() {
       <OfflineToast />
     </div>
   )
+}
+
+function getChatSubtitle(chat: FullChat) {
+  const tx = window.static_translate
+  if (chat.id > C.DC_CHAT_ID_LAST_SPECIAL) {
+    if (chat.isGroup) {
+      return tx('n_members', [String(chat.contacts.length)], {
+        quantity: chat.contacts.length,
+      })
+    } else if (chat.type === C.DC_CHAT_TYPE_MAILINGLIST) {
+      return tx('mailing_list')
+    } else if (chat.contacts.length >= 1) {
+      if (chat.isSelfTalk) {
+        return tx('chat_self_talk_subtitle')
+      } else if (chat.isDeviceChat) {
+        return tx('device_talk_subtitle')
+      }
+      return chat.contacts[0].address
+    }
+  } else {
+    switch (chat.id) {
+      case C.DC_CHAT_ID_DEADDROP:
+        return tx('menu_deaddrop_subtitle')
+    }
+  }
+  return 'ErrTitle'
 }

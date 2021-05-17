@@ -17,7 +17,6 @@ class state implements FullChat {
   profileImage: string = null
 
   archived = false
-  subtitle = ''
   type: number = null
   isUnpromoted = false
   isSelfTalk = false
@@ -282,7 +281,6 @@ ipcBackend.on('DD_EVENT_CHAT_MODIFIED', (_evt, payload) => {
     payload: {
       profileImage: chat.profileImage,
       name: chat.name,
-      subtitle: chat.subtitle,
       contacts: chat.contacts,
       selfInGroup: chat.selfInGroup,
       muted: chat.muted,
