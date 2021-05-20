@@ -8,11 +8,15 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building..'
+		checkout scm
 		sh 'npm install'
 		sh 'npm run build'
             }
         }
         stage('Test') {
+	   when {
+              	expression {currentBuild.result == null || currentBuild.result == 'SUCCESS'}
+            }
             steps {
                 echo 'Testing..'
 		sh 'npm test'
